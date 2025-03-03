@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from 'sonner';
+import "react-day-picker/dist/style.css"
 
 const inter = Inter({ subsets: ['latin'] });
 

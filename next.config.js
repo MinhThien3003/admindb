@@ -23,6 +23,8 @@ const nextConfig = {
         });
         return config;
     },
+    reactStrictMode: true,
+    transpilePackages: ['react-day-picker'],
 }
 
 module.exports = nextConfig 

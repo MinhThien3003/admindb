@@ -1,288 +1,425 @@
 "use client"
 
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { Input } from "@/components/ui/input"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import Image from "next/image"
-import { useState, useEffect } from "react"
-import React from "react"
-import { X } from "lucide-react"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Checkbox } from "@/components/ui/checkbox"
+import { useToast } from "@/hooks/use-toast"
+import { Plus, Trash, Star, Clock, CheckCircle, XCircle } from "lucide-react"
+import { NovelStatus } from "@/app/dashboard/novels/page"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
-// Define types
+// Định nghĩa interface cho Rating
+interface Rating {
+  userId: number;
+  username: string;
+  stars: number;
+  comment?: string;
+  createdAt: string;
+}
+
+// Định nghĩa interface cho Chapter
 interface Chapter {
-    title: string;
-    content: string;
+  title: string;
+  content: string;
+  isPremium?: boolean;
+  price?: number;
+  ratings?: Rating[];
+}
+
+// Định nghĩa interface cho Novel
+interface Novel {
+  id: number;
+  name: string;
+  image: string;
+  categories: string[];
+  chapters: Chapter[];
+  views: number;
+  createdAt: string;
+  description: string;
+  averageRating?: number;
+  totalRatings?: number;
+  status: NovelStatus;
 }
 
 interface NovelFormProps {
-    initialData: {
-        id: number;
-        name: string;
-        image: string;
-        categories: string[];
-        chapters: Chapter[];
-        description: string;
-        views: number;
-        createdAt: string;
-    };
-    selectedChapter: Chapter | null;
-    onChapterChange: (chapter: Chapter) => void;
-    onSubmit: (data: any) => void;
+  initialData: Novel;
+  selectedChapter: Chapter | null;
+  onChapterChange: (chapter: Chapter) => void;
+  onSubmit: (data: Partial<Novel>) => void;
 }
 
-const formSchema = z.object({
-    name: z.string().min(1, { message: "Tên truyện không được để trống." }),
-    image: z.string(),
-    categories: z.array(z.string()),
-    description: z.string().min(1, { message: "Mô tả không được để trống" }),
-    chapters: z.array(z.object({
-        title: z.string(),
-        content: z.string(),
-    })),
-})
+export function NovelForm({
+  initialData,
+  selectedChapter,
+  onChapterChange,
+  onSubmit,
+}: NovelFormProps) {
+  const [formData, setFormData] = useState<Novel>(initialData)
+  const [activeTab, setActiveTab] = useState("details")
+  const [newCategory, setNewCategory] = useState("")
+  const { toast } = useToast()
 
-type FormData = z.infer<typeof formSchema>;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData({ ...formData, [name]: value })
+  }
 
-const CATEGORIES = [
-    "Fantasy", "Adventure", "Romance", "Action", "Comedy", 
-    "Drama", "Horror", "Mystery", "Sci-fi", "Slice of Life"
-];
+  const handleStatusChange = (value: string) => {
+    setFormData({ ...formData, status: value as NovelStatus })
+  }
 
-export function NovelForm({ initialData, selectedChapter, onChapterChange, onSubmit }: NovelFormProps) {
-    const [imagePreview, setImagePreview] = useState(initialData.image)
-    const [newCategory, setNewCategory] = useState("")
-    
-    const form = useForm<FormData>({
-        resolver: zodResolver(formSchema),
-        defaultValues: initialData,
-    })
+  const handleChapterSelect = (chapter: Chapter) => {
+    onChapterChange(chapter)
+  }
 
-    useEffect(() => {
-        if (selectedChapter) {
-            const chapterIndex = initialData.chapters.findIndex(
-                ch => ch.title === selectedChapter.title
-            );
-            if (chapterIndex !== -1) {
-                form.setValue(`chapters.${chapterIndex}.content`, selectedChapter.content);
-            }
-        }
-    }, [selectedChapter, form, initialData.chapters]);
+  const handleChapterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, index: number) => {
+    const { name, value } = e.target
+    const updatedChapters = [...formData.chapters]
+    updatedChapters[index] = { ...updatedChapters[index], [name]: value }
+    setFormData({ ...formData, chapters: updatedChapters })
+  }
 
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (file) {
-            const reader = new FileReader()
-            reader.onloadend = () => {
-                const result = reader.result as string
-                setImagePreview(result)
-                form.setValue("image", result)
-            }
-            reader.readAsDataURL(file)
-        }
+  const handleChapterPremiumChange = (checked: boolean, index: number) => {
+    const updatedChapters = [...formData.chapters]
+    updatedChapters[index] = { 
+      ...updatedChapters[index], 
+      isPremium: checked,
+      // Nếu không phải premium, xóa giá tiền
+      price: checked ? (updatedChapters[index].price || 0) : undefined
     }
+    setFormData({ ...formData, chapters: updatedChapters })
+  }
 
-    const handleChapterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const chapter = initialData.chapters.find(
-            ch => ch.title === e.target.value
-        );
-        if (chapter) {
-            onChapterChange(chapter);
-        }
+  const handleChapterPriceChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const value = parseFloat(e.target.value)
+    const updatedChapters = [...formData.chapters]
+    updatedChapters[index] = { 
+      ...updatedChapters[index], 
+      price: isNaN(value) ? 0 : value 
+    }
+    setFormData({ ...formData, chapters: updatedChapters })
+  }
+
+  const addChapter = () => {
+    const newChapter = {
+      title: `Chapter ${formData.chapters.length + 1}`,
+      content: "",
+      isPremium: false
+    }
+    setFormData({
+      ...formData,
+      chapters: [...formData.chapters, newChapter],
+    })
+    onChapterChange(newChapter)
+  }
+
+  const removeChapter = (index: number) => {
+    const updatedChapters = formData.chapters.filter((_, i) => i !== index)
+    setFormData({ ...formData, chapters: updatedChapters })
+    
+    if (updatedChapters.length > 0) {
+      onChapterChange(updatedChapters[0])
+    } else {
+      onChapterChange({ title: "", content: "" })
+    }
+  }
+
+  const addCategory = () => {
+    if (newCategory && !formData.categories.includes(newCategory)) {
+      setFormData({
+        ...formData,
+        categories: [...formData.categories, newCategory],
+      })
+      setNewCategory("")
+    }
+  }
+
+  const removeCategory = (category: string) => {
+    setFormData({
+      ...formData,
+      categories: formData.categories.filter((c) => c !== category),
+    })
+  }
+
+  // Tính điểm trung bình của một chương
+  const calculateChapterRating = (ratings: Rating[] = []) => {
+    if (ratings.length === 0) return 0;
+    const totalStars = ratings.reduce((sum, rating) => sum + rating.stars, 0);
+    return parseFloat((totalStars / ratings.length).toFixed(1));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // Tính toán lại điểm trung bình và tổng số đánh giá
+    let totalStars = 0;
+    let totalRatings = 0;
+    
+    formData.chapters.forEach(chapter => {
+      if (chapter.ratings && chapter.ratings.length > 0) {
+        totalStars += chapter.ratings.reduce((sum, rating) => sum + rating.stars, 0);
+        totalRatings += chapter.ratings.length;
+      }
+    });
+    
+    const averageRating = totalRatings > 0 
+      ? parseFloat((totalStars / totalRatings).toFixed(1)) 
+      : 0;
+    
+    const updatedData = {
+      ...formData,
+      averageRating,
+      totalRatings
     };
+    
+    onSubmit(updatedData)
+    toast({
+      title: "Thành công",
+      description: "Đã lưu thông tin truyện",
+    })
+  }
 
-    const handleAddCategory = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' && newCategory.trim() !== '') {
-            e.preventDefault();
-            const currentCategories = form.getValues('categories');
-            if (!currentCategories.includes(newCategory.trim())) {
-                form.setValue('categories', [...currentCategories, newCategory.trim()]);
-            }
-            setNewCategory('');
-        }
-    };
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="details">Thông tin chung</TabsTrigger>
+          <TabsTrigger value="chapters">Danh sách chương</TabsTrigger>
+          <TabsTrigger value="editor">Nội dung chương</TabsTrigger>
+        </TabsList>
 
-    const handleRemoveCategory = (categoryToRemove: string) => {
-        const currentCategories = form.getValues('categories');
-        form.setValue(
-            'categories',
-            currentCategories.filter(cat => cat !== categoryToRemove)
-        );
-    };
+        <TabsContent value="details" className="space-y-4">
+          <div>
+            <Label htmlFor="name">Tên truyện</Label>
+            <Input
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              required
+            />
+          </div>
 
-    return (
-        <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                {/* Hình ảnh */}
-                <div className="space-y-2">
-                    <FormLabel>Hình ảnh</FormLabel>
-                    <div className="flex items-center gap-4">
-                        <div className="relative w-32 h-48 border rounded-md overflow-hidden">
-                            <Image
-                                src={imagePreview}
-                                alt="Novel cover"
-                                fill
-                                className="object-cover"
-                            />
-                        </div>
-                        <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageChange}
-                            className="max-w-[250px]"
-                        />
-                    </div>
+          <div>
+            <Label htmlFor="status">Trạng thái</Label>
+            <Select
+              value={formData.status}
+              onValueChange={handleStatusChange}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Chọn trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NovelStatus.ONGOING}>
+                  <div className="flex items-center">
+                    <Clock className="h-4 w-4 mr-2 text-blue-500" />
+                    Đang tiến hành
+                  </div>
+                </SelectItem>
+                <SelectItem value={NovelStatus.COMPLETED}>
+                  <div className="flex items-center">
+                    <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                    Hoàn thành
+                  </div>
+                </SelectItem>
+                <SelectItem value={NovelStatus.DROPPED}>
+                  <div className="flex items-center">
+                    <XCircle className="h-4 w-4 mr-2 text-red-500" />
+                    Đã drop
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="image">Đường dẫn ảnh bìa</Label>
+            <Input
+              id="image"
+              name="image"
+              value={formData.image}
+              onChange={handleInputChange}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="description">Mô tả</Label>
+            <Textarea
+              id="description"
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              rows={4}
+            />
+          </div>
+
+          <div>
+            <Label>Thể loại</Label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {formData.categories.map((category) => (
+                <div
+                  key={category}
+                  className="flex items-center bg-secondary px-3 py-1 rounded-full"
+                >
+                  <span>{category}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 ml-1"
+                    onClick={() => removeCategory(category)}
+                  >
+                    <Trash className="h-3 w-3" />
+                  </Button>
                 </div>
+              ))}
+            </div>
+            <div className="flex mt-2">
+              <Input
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                placeholder="Thêm thể loại mới"
+                className="mr-2"
+              />
+              <Button type="button" onClick={addCategory}>
+                Thêm
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
 
-                {/* Tên truyện */}
-                <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Tên Truyện</FormLabel>
-                            <FormControl>
-                                <Input placeholder="Nhập tên truyện" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
+        <TabsContent value="chapters" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-medium">Danh sách chương</h3>
+            <Button type="button" onClick={addChapter} size="sm">
+              <Plus className="h-4 w-4 mr-1" /> Thêm chương
+            </Button>
+          </div>
 
-                {/* Thể loại */}
-                <FormField
-                    control={form.control}
-                    name="categories"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Thể loại</FormLabel>
-                            <FormControl>
-                                <div className="space-y-4">
-                                    <div className="flex flex-wrap gap-2">
-                                        {field.value.map((category, index) => (
-                                            <div
-                                                key={index}
-                                                className="flex items-center gap-1 bg-blue-100 text-blue-700 px-3 py-1 rounded-full"
-                                            >
-                                                <span>{category}</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleRemoveCategory(category)}
-                                                    className="hover:text-red-500 focus:outline-none"
-                                                >
-                                                    <X className="h-4 w-4" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <Input
-                                            placeholder="Thêm thể loại mới..."
-                                            value={newCategory}
-                                            onChange={(e) => setNewCategory(e.target.value)}
-                                            onKeyDown={handleAddCategory}
-                                            className="flex-1"
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() => {
-                                                if (newCategory.trim() !== '') {
-                                                    const currentCategories = field.value;
-                                                    if (!currentCategories.includes(newCategory.trim())) {
-                                                        field.onChange([...currentCategories, newCategory.trim()]);
-                                                    }
-                                                    setNewCategory('');
-                                                }
-                                            }}
-                                        >
-                                            Thêm
-                                        </Button>
-                                    </div>
-                                    <div className="text-sm text-muted-foreground">
-                                        Nhấn Enter hoặc nút Thêm để thêm thể loại mới
-                                    </div>
-                                </div>
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
+          <ScrollArea className="h-[400px] border rounded-md p-4">
+            <div className="space-y-4">
+              {formData.chapters.map((chapter, index) => (
+                <div
+                  key={index}
+                  className="border rounded-md p-4 space-y-3"
+                >
+                  <div className="flex justify-between items-center">
+                    <div className="flex-1">
+                      <Label htmlFor={`chapter-title-${index}`}>Tiêu đề</Label>
+                      <Input
+                        id={`chapter-title-${index}`}
+                        name="title"
+                        value={chapter.title}
+                        onChange={(e) => handleChapterChange(e, index)}
+                        required
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 ml-2"
+                      onClick={() => removeChapter(index)}
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </div>
 
-                {/* Mô tả */}
-                <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Mô tả</FormLabel>
-                            <FormControl>
-                                <Textarea 
-                                    placeholder="Nhập mô tả truyện" 
-                                    className="resize-none"
-                                    {...field} 
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-
-                {/* Chọn chương */}
-                <FormField
-                    control={form.control}
-                    name="chapters"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Chương</FormLabel>
-                            <FormControl>
-                                <select
-                                    className="w-full h-10 border rounded-md px-3"
-                                    value={selectedChapter?.title || ""}
-                                    onChange={handleChapterChange}
-                                >
-                                    {initialData.chapters.map((chapter, index) => (
-                                        <option key={index} value={chapter.title}>
-                                            {chapter.title}
-                                        </option>
-                                    ))}
-                                </select>
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-
-                {/* Nội dung chương */}
-                {selectedChapter && (
-                    <FormField
-                        control={form.control}
-                        name={`chapters.${initialData.chapters.findIndex(
-                            ch => ch.title === selectedChapter.title
-                        )}.content`}
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Nội dung chương</FormLabel>
-                                <FormControl>
-                                    <Textarea
-                                        {...field}
-                                        placeholder="Nhập nội dung chương"
-                                        className="min-h-[300px] resize-none"
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`chapter-premium-${index}`}
+                      checked={chapter.isPremium || false}
+                      onCheckedChange={(checked) => 
+                        handleChapterPremiumChange(checked === true, index)
+                      }
                     />
-                )}
+                    <Label htmlFor={`chapter-premium-${index}`}>Chương trả phí</Label>
+                  </div>
 
-                <Button type="submit" className="w-full">
-                    Lưu thay đổi
-                </Button>
-            </form>
-        </Form>
-    )
+                  {chapter.isPremium && (
+                    <div>
+                      <Label htmlFor={`chapter-price-${index}`}>Giá (xu)</Label>
+                      <Input
+                        id={`chapter-price-${index}`}
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={chapter.price || 0}
+                        onChange={(e) => handleChapterPriceChange(e, index)}
+                        required={chapter.isPremium}
+                      />
+                    </div>
+                  )}
+
+                  {/* Hiển thị thông tin đánh giá nếu có */}
+                  {chapter.ratings && chapter.ratings.length > 0 && (
+                    <div className="mt-2 pt-2 border-t">
+                      <div className="flex items-center">
+                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
+                        <span className="text-sm">
+                          {calculateChapterRating(chapter.ratings)} ({chapter.ratings.length} đánh giá)
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleChapterSelect(chapter)}
+                    >
+                      Chỉnh sửa nội dung
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
+        <TabsContent value="editor">
+          {selectedChapter ? (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">{selectedChapter.title}</h3>
+              <Textarea
+                value={selectedChapter.content}
+                onChange={(e) => {
+                  const index = formData.chapters.findIndex(
+                    (c) => c.title === selectedChapter.title
+                  )
+                  if (index !== -1) {
+                    handleChapterChange(e, index)
+                  }
+                }}
+                placeholder="Nhập nội dung chương..."
+                className="min-h-[400px]"
+                name="content"
+              />
+            </div>
+          ) : (
+            <div className="text-center py-10">
+              <p>Vui lòng chọn một chương để chỉnh sửa</p>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      <div className="flex justify-end">
+        <Button type="submit">Lưu thay đổi</Button>
+      </div>
+    </form>
+  )
 }

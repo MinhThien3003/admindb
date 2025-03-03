@@ -1,21 +1,24 @@
-import { Sidebar } from "@/components/dashboard/sidebar";
-import { Users } from "lucide-react";
+"use client"
 
-export default function DashboardLayout({
-    children,
-}: {
+import { Sidebar } from "@/components/dashboard/sidebar";
+import { Toaster } from "@/components/ui/toaster";
+
+interface DashboardLayoutProps {
     children: React.ReactNode;
-}) {
+}
+
+export default function DashboardLayout({ children }: DashboardLayoutProps) {
     return (
-        <div className="relative min-h-screen">
-            <div className="hidden md:flex md:flex-col md:fixed md:inset-y-0 z-[80]">
+        <div className="flex min-h-screen">
+            <div className="hidden md:flex md:w-64 md:flex-col">
                 <Sidebar />
             </div>
-            <main className="flex-1 md:pl-72">
-                <div className="px-6 py-4">
+            <div className="flex flex-1 flex-col">
+                <main className="flex-1">
                     {children}
-                </div>
-            </main>
+                </main>
+            </div>
+            <Toaster />
         </div>
     );
 }
