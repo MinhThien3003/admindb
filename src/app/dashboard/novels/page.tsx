@@ -16,10 +16,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Search, Trash2, Plus, Edit2, Star, Clock, CheckCircle, XCircle, Calendar } from "lucide-react"
-import { NovelForm } from "@/components/dashboard/novel-form"
 import { Pagination } from "@/components/ui/pagination"
 import { RatingDetails } from "@/components/dashboard/rating-details"
 import { Badge } from "@/components/ui/badge"
@@ -27,6 +25,7 @@ import { format } from "date-fns"
 import { vi } from "date-fns/locale"
 import type { DateRange } from "react-day-picker"
 import { DatePickerWithRange } from "@/components/ui/date-range-picker"
+import { NovelEditDialog, type NovelData } from "@/components/dashboard/novel-edit-dialog"
 
 // Định nghĩa enum cho trạng thái truyện
 export enum NovelStatus {
@@ -355,17 +354,39 @@ const renderNovelStatus = (status: NovelStatus) => {
   }
 };
 
+// Danh sách thể loại mẫu để sử dụng với NovelEditDialog
+const novelCategories = [
+  "Tiên Hiệp",
+  "Kiếm Hiệp",
+  "Ngôn Tình",
+  "Đô Thị",
+  "Huyền Huyễn",
+  "Dị Giới",
+  "Khoa Huyễn",
+  "Kỳ Ảo",
+  "Võng Du",
+  "Lịch Sử",
+  "Quân Sự",
+  "Trinh Thám",
+  "Xuyên Không",
+  "Trọng Sinh",
+  "Mạt Thế",
+  "Cổ Đại",
+  "Hiện Đại",
+  "Huyền Nghi"
+]
+
 export default function NovelsPage() {
   const [novels, setNovels] = useState<Novel[]>(initialNovels)
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [selectedNovel, setSelectedNovel] = useState<Novel | null>(null)
-  const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null)
   const [showRatingDetails, setShowRatingDetails] = useState(false)
   const [selectedNovelForRating, setSelectedNovelForRating] = useState<Novel | null>(null)
   const [statusFilter, setStatusFilter] = useState<NovelStatus | "all">("all")
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const ITEMS_PER_PAGE = 10
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editingNovel, setEditingNovel] = useState<NovelData | undefined>()
 
   const filteredNovels = novels.filter((novel) => {
     const matchesSearch = novel.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -401,38 +422,7 @@ export default function NovelsPage() {
   }
 
   const handleEdit = (novel: Novel) => {
-    setSelectedNovel(novel)
-    setSelectedChapter(novel.chapters[0])
-  }
-
-  const handleClose = () => {
-    setSelectedNovel(null)
-    setSelectedChapter(null)
-  }
-
-  const handleSubmit = (data: Partial<Novel>, isEdit: boolean = false) => {
-    if (isEdit && selectedNovel) {
-      setNovels(novels.map((novel) => 
-        novel.id === selectedNovel.id ? { ...novel, ...data } : novel
-      ));
-      handleClose();
-    } else {
-      // Thêm novel mới
-      const newNovel: Novel = {
-        id: novels.length + 1,
-        name: data.name || "",
-        image: data.image || "",
-        categories: data.categories || [],
-        chapters: data.chapters || [{ title: "Chapter 1", content: "" }],
-        views: 0,
-        createdAt: new Date().toISOString().split('T')[0],
-        description: data.description || "",
-        averageRating: 0,
-        totalRatings: 0,
-        status: data.status || NovelStatus.ONGOING
-      };
-      setNovels([...novels, newNovel]);
-    }
+    handleOpenEditDialog(novel)
   }
 
   const handleViewRatings = (novel: Novel) => {
@@ -457,39 +447,86 @@ export default function NovelsPage() {
     setCurrentPage(1);
   }
 
+  const handleOpenEditDialog = (novel?: Novel) => {
+    // Chuyển đổi từ Novel sang NovelData khi cần
+    if (novel) {
+      console.log('Mở dialog với novel:', novel)
+      const novelData: NovelData = {
+        id: novel.id,
+        name: novel.name,
+        image: novel.image,
+        categories: novel.categories,
+        description: novel.description,
+        status: novel.status,
+        views: novel.views,
+        chapters: novel.chapters.map(chapter => ({
+          ...chapter,
+          content: chapter.content || ''
+        })),
+        createdAt: novel.createdAt,
+        averageRating: novel.averageRating || 0,
+        totalRatings: novel.totalRatings || 0
+      }
+      setEditingNovel(novelData)
+    } else {
+      // Tạo novel mới với dữ liệu mặc định
+      setEditingNovel({
+        name: "",
+        image: "",
+        categories: [],
+        description: "",
+        status: NovelStatus.ONGOING,
+        views: 0,
+        chapters: [],
+        createdAt: new Date().toISOString(),
+        averageRating: 0,
+        totalRatings: 0
+      })
+    }
+    setShowEditDialog(true)
+  }
+
+  const handleSaveNovel = (data: NovelData) => {
+    console.log("Novel saved:", data)
+    
+    if (data.id) {
+      // Chỉnh sửa novel hiện có
+      const updatedNovels = novels.map(novel => 
+        novel.id === data.id ? { 
+          ...novel, 
+          name: data.name,
+          image: data.image,
+          categories: data.categories,
+          description: data.description,
+          status: data.status,
+          chapters: data.chapters
+        } : novel
+      )
+      setNovels(updatedNovels)
+    } else {
+      // Thêm novel mới với ID tự tạo
+      const newNovel: Novel = {
+        ...data,
+        id: novels.length + 1,
+        views: 0,
+        createdAt: new Date().toISOString().split('T')[0],
+        averageRating: 0,
+        totalRatings: 0
+      }
+      setNovels([...novels, newNovel])
+    }
+    
+    setShowEditDialog(false)
+  }
+
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Truyện</h2>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Thêm truyện
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Thêm truyện mới</DialogTitle>
-            </DialogHeader>
-            <NovelForm
-              initialData={{
-                id: novels.length + 1,
-                name: "",
-                image: "",
-                categories: [],
-                chapters: [{ title: "Chapter 1", content: "" }],
-                views: 0,
-                createdAt: new Date().toISOString().split('T')[0],
-                description: "",
-                status: NovelStatus.ONGOING
-              }}
-              selectedChapter={{ title: "Chapter 1", content: "" }}
-              onChapterChange={() => {}}
-              onSubmit={(data) => handleSubmit(data)}
-            />
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => handleOpenEditDialog()}>
+          <Plus className="mr-2 h-4 w-4" />
+          Thêm truyện
+        </Button>
       </div>
 
       <div className="flex flex-col space-y-4">
@@ -669,28 +706,6 @@ export default function NovelsPage() {
         />
       </div>
 
-      {/* Dialog for editing novel */}
-      <Dialog open={!!selectedNovel} onOpenChange={handleClose}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Chỉnh sửa Truyện</DialogTitle>
-          </DialogHeader>
-          {selectedNovel && (
-            <NovelForm
-              initialData={selectedNovel}
-              selectedChapter={selectedChapter}
-              onChapterChange={setSelectedChapter}
-              onSubmit={(data: Partial<Novel>) => {
-                setNovels(novels.map((novel) => 
-                  novel.id === selectedNovel.id ? { ...novel, ...data } : novel
-                ));
-                handleClose();
-              }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
       {/* Dialog for viewing ratings */}
       <Dialog open={showRatingDetails} onOpenChange={setShowRatingDetails}>
         <DialogContent className="max-w-4xl">
@@ -702,6 +717,15 @@ export default function NovelsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Dialog chỉnh sửa truyện với giao diện mới */}
+      <NovelEditDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        initialData={editingNovel}
+        onSave={handleSaveNovel}
+        categories={novelCategories}
+      />
 
       <style jsx global>{`
         .fill-half {

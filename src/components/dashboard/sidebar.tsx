@@ -3,23 +3,21 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
-import { ScrollArea } from "../ui/scroll-area";
 import { 
   BookOpen, 
   CircleDollarSign, 
   LayoutDashboard, 
   LogOut, 
-  ChevronLeft, 
-  User, 
   TrendingUp, 
   UserCheck, 
   Users, 
   ChevronDown, 
   Tag, 
-  Award 
+  Award,
+  Receipt,
+  CreditCard
 } from "lucide-react";
 import { useState } from "react";
-import { MainNav } from "@/components/dashboard/main-nav";
 
 const routes = [
     {
@@ -60,13 +58,14 @@ const routes = [
     },
 ];
 
-interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+interface SidebarProps {
+  className?: string;
+}
 
 export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
     const [isTransactionOpen, setIsTransactionOpen] = useState(false);
-    const [isRankingOpen, setIsRankingOpen] = useState(false);
 
     return (
         <div className={cn("pb-12", className)}>
@@ -91,31 +90,37 @@ export function Sidebar({ className }: SidebarProps) {
                 </div>
                 <div className="px-4 py-2">
                     <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">
-                        Transactions
+                        Giao dịch
                     </h2>
                     <Button 
                         variant="ghost" 
-                        className="w-full justify-between"
+                        className="w-full justify-between mt-1"
                         onClick={() => setIsTransactionOpen(!isTransactionOpen)}
                     >
                         <div className="flex items-center">
-                            <CircleDollarSign className="mr-2 h-4 w-4 text-green-500" />
-                            <span>Transactions</span>
+                            <Receipt className="mr-2 h-4 w-4 text-green-500" />
+                            <span>Quản lý giao dịch</span>
                         </div>
                         <ChevronDown className={cn("h-4 w-4 transition-transform", isTransactionOpen ? "rotate-180" : "")} />
                     </Button>
                     {isTransactionOpen && (
                         <div className="ml-4 mt-2 space-y-1">
-                            <Link href="/dashboard/transactions/deposits">
-                                <Button variant="ghost" className="w-full justify-start">
-                                    <CircleDollarSign className="mr-2 h-4 w-4 text-green-500" />
-                                    Deposits
+                            <Link href="/dashboard/transactions">
+                                <Button 
+                                    variant={pathname === "/dashboard/transactions" ? "secondary" : "ghost"}
+                                    className="w-full justify-start"
+                                >
+                                    <CircleDollarSign className="mr-2 h-4 w-4 text-blue-500" />
+                                    Giao dịch người dùng
                                 </Button>
                             </Link>
-                            <Link href="/dashboard/transactions/withdrawals">
-                                <Button variant="ghost" className="w-full justify-start">
-                                    <CircleDollarSign className="mr-2 h-4 w-4 text-red-500" />
-                                    Withdrawals
+                            <Link href="/dashboard/transactions/authors">
+                                <Button 
+                                    variant={pathname === "/dashboard/transactions/authors" ? "secondary" : "ghost"}
+                                    className="w-full justify-start"
+                                >
+                                    <CreditCard className="mr-2 h-4 w-4 text-purple-500" />
+                                    Doanh thu tác giả
                                 </Button>
                             </Link>
                         </div>
@@ -125,39 +130,15 @@ export function Sidebar({ className }: SidebarProps) {
                     <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">
                         Rankings
                     </h2>
-                    <Button 
-                        variant="ghost" 
-                        className="w-full justify-between"
-                        onClick={() => setIsRankingOpen(!isRankingOpen)}
-                    >
-                        <div className="flex items-center">
+                    <Link href="/dashboard/rankings">
+                        <Button 
+                            variant={pathname === "/dashboard/rankings" ? "secondary" : "ghost"}
+                            className="w-full justify-start"
+                        >
                             <TrendingUp className="mr-2 h-4 w-4 text-yellow-500" />
                             <span>Rankings</span>
-                        </div>
-                        <ChevronDown className={cn("h-4 w-4 transition-transform", isRankingOpen ? "rotate-180" : "")} />
-                    </Button>
-                    {isRankingOpen && (
-                        <div className="ml-4 mt-2 space-y-1">
-                            <Link href="/dashboard/rankings/novels">
-                                <Button variant="ghost" className="w-full justify-start">
-                                    <BookOpen className="mr-2 h-4 w-4 text-yellow-500" />
-                                    Top Novels
-                                </Button>
-                            </Link>
-                            <Link href="/dashboard/rankings/authors">
-                                <Button variant="ghost" className="w-full justify-start">
-                                    <UserCheck className="mr-2 h-4 w-4 text-yellow-500" />
-                                    Top Authors
-                                </Button>
-                            </Link>
-                            <Link href="/dashboard/rankings/users">
-                                <Button variant="ghost" className="w-full justify-start">
-                                    <User className="mr-2 h-4 w-4 text-yellow-500" />
-                                    Top Users
-                                </Button>
-                            </Link>
-                        </div>
-                    )}
+                        </Button>
+                    </Link>
                 </div>
                 <div className="px-4 py-2">
                     <div className="space-y-1">
