@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -11,21 +11,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Search, Trash2, Plus, Edit2, Star, Clock, CheckCircle, XCircle, Calendar } from "lucide-react"
-import { Pagination } from "@/components/ui/pagination"
-import { RatingDetails } from "@/components/dashboard/rating-details"
+import { Search, Trash2, Plus, Edit, Eye, MoreHorizontal, BookOpen, Clock, CheckCircle, XCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { format } from "date-fns"
-import { vi } from "date-fns/locale"
-import type { DateRange } from "react-day-picker"
-import { DatePickerWithRange } from "@/components/ui/date-range-picker"
-import { NovelEditDialog, type NovelData } from "@/components/dashboard/novel-edit-dialog"
+import { Star } from "lucide-react"
+import Image from "next/image"
+import Link from "next/link"
+import { useNovels } from "@/hooks/use-novels"
+import { useAuth } from "@/hooks/use-auth"
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 // Định nghĩa enum cho trạng thái truyện
 export enum NovelStatus {
@@ -53,225 +52,32 @@ interface Chapter {
 }
 
 // Định nghĩa interface cho Novel
+/* eslint-disable @typescript-eslint/no-unused-vars */
 interface Novel {
-  id: number;
-  name: string;
-  image: string;
-  categories: string[];
-  chapters: Chapter[];
-  views: number;
+  _id?: string;
+  id?: number;
+  idCategories?: Array<{_id: string; name: string}> | string[];
+  idUser?: {
+    _id: string;
+    username: string;
+    name?: string;
+  } | string;
+  title: string;
+  image?: string;
+  imageUrl?: string;
+  categories?: string[];
+  chapters?: Chapter[];
+  views?: number;
+  view?: number;
   createdAt: string;
+  updatedAt?: string;
   description: string;
   averageRating?: number; // Điểm trung bình của truyện
+  rate?: number;
   totalRatings?: number; // Tổng số lượt đánh giá
-  status: NovelStatus; // Trạng thái truyện
+  status: NovelStatus | string; // Trạng thái truyện
 }
-
-// Temporary data - replace with actual data fetching
-const initialNovels: Novel[] = [
-  { 
-    id: 1, 
-    name: "The Lost Kingdom", 
-    image: "/images/novels/lost-kingdom.jpg",
-    categories: ["Fantasy", "Adventure"],
-    chapters: [
-      { 
-        title: "Chapter 1", 
-        content: "Content of Chapter 1", 
-        isPremium: false,
-        ratings: [
-          { userId: 1, username: "user1", stars: 5, comment: "Tuyệt vời!", createdAt: "2023-05-10" },
-          { userId: 2, username: "user2", stars: 4, comment: "Hay lắm", createdAt: "2023-05-11" },
-          { userId: 3, username: "user3", stars: 5, comment: "Quá đỉnh", createdAt: "2023-05-12" },
-          { userId: 4, username: "user4", stars: 4, comment: "Rất thú vị", createdAt: "2023-05-13" },
-          { userId: 5, username: "user5", stars: 5, comment: "Không thể tin được", createdAt: "2023-05-14" }
-        ]
-      }, 
-      { 
-        title: "Chapter 2", 
-        content: "Content of Chapter 2", 
-        isPremium: true, 
-        price: 5,
-        ratings: [
-          { userId: 1, username: "user1", stars: 4, comment: "Hay", createdAt: "2023-05-15" },
-          { userId: 2, username: "user2", stars: 5, comment: "Tuyệt vời", createdAt: "2023-05-16" },
-          { userId: 3, username: "user3", stars: 3, comment: "Bình thường", createdAt: "2023-05-17" },
-          { userId: 4, username: "user4", stars: 4, comment: "Khá hay", createdAt: "2023-05-18" },
-          { userId: 5, username: "user5", stars: 4, comment: "Tốt", createdAt: "2023-05-19" }
-        ]
-      }
-    ], 
-    views: 12500, 
-    createdAt: "2022-01-01", 
-    description: "An epic tale of adventure.",
-    averageRating: 4.3,
-    totalRatings: 10,
-    status: NovelStatus.ONGOING
-  },
-  { 
-    id: 2, 
-    name: "Eternal Flame", 
-    image: "/images/novels/eternal-flame.jpg",
-    categories: ["Romance", "Drama"],
-    chapters: [
-      { 
-        title: "Chapter 1", 
-        content: "Content of Chapter 1", 
-        isPremium: false,
-        ratings: [
-          { userId: 1, username: "user1", stars: 5, comment: "Cảm động quá", createdAt: "2023-06-10" },
-          { userId: 2, username: "user2", stars: 5, comment: "Rất hay", createdAt: "2023-06-11" },
-          { userId: 3, username: "user3", stars: 4, comment: "Thú vị", createdAt: "2023-06-12" },
-          { userId: 4, username: "user4", stars: 5, comment: "Tuyệt vời", createdAt: "2023-06-13" },
-          { userId: 5, username: "user5", stars: 4, comment: "Hay", createdAt: "2023-06-14" }
-        ]
-      },
-      { 
-        title: "Chapter 2", 
-        content: "Content of Chapter 2", 
-        isPremium: true, 
-        price: 3,
-        ratings: [
-          { userId: 1, username: "user1", stars: 3, comment: "Bình thường", createdAt: "2023-06-15" },
-          { userId: 2, username: "user2", stars: 4, comment: "Khá hay", createdAt: "2023-06-16" },
-          { userId: 3, username: "user3", stars: 3, comment: "Tạm được", createdAt: "2023-06-17" },
-          { userId: 4, username: "user4", stars: 4, comment: "Thú vị", createdAt: "2023-06-18" },
-          { userId: 5, username: "user5", stars: 3, comment: "Ổn", createdAt: "2023-06-19" }
-        ]
-      }
-    ], 
-    views: 8900, 
-    createdAt: "2022-02-15", 
-    description: "A story of love and sacrifice.",
-    averageRating: 4.0,
-    totalRatings: 10,
-    status: NovelStatus.COMPLETED
-  },
-  { 
-    id: 3, 
-    name: "Shadow Walker", 
-    image: "/novels/shadow-walker.jpg",
-    categories: ["Mystery", "Horror"],
-    chapters: [
-      { 
-        title: "Chapter 1", 
-        content: "Content of Chapter 1",
-        ratings: [
-          { userId: 1, username: "user1", stars: 4, createdAt: "2023-07-10" },
-          { userId: 2, username: "user2", stars: 3, createdAt: "2023-07-11" },
-          { userId: 3, username: "user3", stars: 4, createdAt: "2023-07-12" },
-          { userId: 4, username: "user4", stars: 3, createdAt: "2023-07-13" },
-          { userId: 5, username: "user5", stars: 4, createdAt: "2023-07-14" }
-        ]
-      }
-    ],
-    views: 7800, 
-    createdAt: "2022-03-01", 
-    description: "A supernatural mystery.",
-    averageRating: 3.6,
-    totalRatings: 5,
-    status: NovelStatus.DROPPED
-  },
-  { 
-    id: 4, 
-    name: "Digital Dreams", 
-    image: "/novels/digital-dreams.jpg",
-    categories: ["Sci-fi", "Adventure"],
-    chapters: [{ title: "Chapter 1", content: "Content of Chapter 1" }],
-    views: 9200, 
-    createdAt: "2022-03-15", 
-    description: "A cyberpunk adventure.",
-    status: NovelStatus.ONGOING
-  },
-  { 
-    id: 5, 
-    name: "Heart's Echo", 
-    image: "/novels/hearts-echo.jpg",
-    categories: ["Romance", "Drama"],
-    chapters: [{ title: "Chapter 1", content: "Content of Chapter 1" }],
-    views: 11300, 
-    createdAt: "2022-04-01", 
-    description: "A touching love story.",
-    status: NovelStatus.ONGOING
-  },
-  { 
-    id: 6, 
-    name: "Dragon's Call", 
-    image: "/novels/dragons-call.jpg",
-    categories: ["Fantasy", "Action"],
-    chapters: [{ title: "Chapter 1", content: "Content of Chapter 1" }],
-    views: 13400, 
-    createdAt: "2022-04-15", 
-    description: "A dragon tamer's journey.",
-    status: NovelStatus.ONGOING
-  },
-  { 
-    id: 7, 
-    name: "Urban Legends", 
-    image: "/novels/urban-legends.jpg",
-    categories: ["Horror", "Mystery"],
-    chapters: [{ title: "Chapter 1", content: "Content of Chapter 1" }],
-    views: 8700, 
-    createdAt: "2022-05-01", 
-    description: "Modern horror stories.",
-    status: NovelStatus.DROPPED
-  },
-  { 
-    id: 8, 
-    name: "Time Travelers", 
-    image: "/novels/time-travelers.jpg",
-    categories: ["Sci-fi", "Adventure"],
-    chapters: [{ title: "Chapter 1", content: "Content of Chapter 1" }],
-    views: 10200, 
-    createdAt: "2022-05-15", 
-    description: "A journey through time.",
-    status: NovelStatus.ONGOING
-  },
-  { 
-    id: 9, 
-    name: "School Days", 
-    image: "/novels/school-days.jpg",
-    categories: ["Slice of Life", "Comedy"],
-    chapters: [{ title: "Chapter 1", content: "Content of Chapter 1" }],
-    views: 9500, 
-    createdAt: "2022-06-01", 
-    description: "Hilarious school adventures.",
-    status: NovelStatus.COMPLETED
-  },
-  { 
-    id: 10, 
-    name: "Warrior's Path", 
-    image: "/novels/warriors-path.jpg",
-    categories: ["Action", "Fantasy"],
-    chapters: [{ title: "Chapter 1", content: "Content of Chapter 1" }],
-    views: 14200, 
-    createdAt: "2022-06-15", 
-    description: "A martial arts epic.",
-    status: NovelStatus.ONGOING
-  },
-  { 
-    id: 11, 
-    name: "Ocean's Heart", 
-    image: "/novels/oceans-heart.jpg",
-    categories: ["Adventure", "Romance"],
-    chapters: [{ title: "Chapter 1", content: "Content of Chapter 1" }],
-    views: 12100, 
-    createdAt: "2022-07-01", 
-    description: "A seafaring romance.",
-    status: NovelStatus.COMPLETED
-  },
-  { 
-    id: 12, 
-    name: "Night Watch", 
-    image: "/novels/night-watch.jpg",
-    categories: ["Mystery", "Action"],
-    chapters: [{ title: "Chapter 1", content: "Content of Chapter 1" }],
-    views: 11800, 
-    createdAt: "2022-07-15", 
-    description: "A detective's story.",
-    status: NovelStatus.ONGOING
-  }
-]
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 // Hàm tính điểm trung bình của một chương (giữ lại nhưng đánh dấu là đã sử dụng)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -299,11 +105,13 @@ const calculateNovelRating = (chapters: Chapter[] = []) => {
 };
 
 // Hàm chuyển đổi số sao sang điểm (5 sao = 10 điểm)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const starsToPoints = (stars: number) => {
   return (stars / 5) * 10;
 };
 
 // Hàm tạo mảng sao dựa trên điểm đánh giá
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const renderStars = (rating: number) => {
   const stars = [];
   const fullStars = Math.floor(rating);
@@ -326,6 +134,7 @@ const renderStars = (rating: number) => {
 };
 
 // Hàm hiển thị trạng thái truyện
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const renderNovelStatus = (status: NovelStatus) => {
   switch (status) {
     case NovelStatus.ONGOING:
@@ -355,6 +164,7 @@ const renderNovelStatus = (status: NovelStatus) => {
 };
 
 // Danh sách thể loại mẫu để sử dụng với NovelEditDialog
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const novelCategories = [
   "Tiên Hiệp",
   "Kiếm Hiệp",
@@ -377,361 +187,270 @@ const novelCategories = [
 ]
 
 export default function NovelsPage() {
-  const [novels, setNovels] = useState<Novel[]>(initialNovels)
-  const [searchQuery, setSearchQuery] = useState("")
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { novels, fetchNovels, isLoading, addNovel, updateNovel, deleteNovel } = useNovels()
+  const { user } = useAuth()
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
-  const [showRatingDetails, setShowRatingDetails] = useState(false)
-  const [selectedNovelForRating, setSelectedNovelForRating] = useState<Novel | null>(null)
-  const [statusFilter, setStatusFilter] = useState<NovelStatus | "all">("all")
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
-  const ITEMS_PER_PAGE = 10
-  const [showEditDialog, setShowEditDialog] = useState(false)
-  const [editingNovel, setEditingNovel] = useState<NovelData | undefined>()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [showNovelAddDialog, setShowNovelAddDialog] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [showNovelEditDialog, setShowNovelEditDialog] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [selectedNovel, setSelectedNovel] = useState<Novel | null>(null)
+  const itemsPerPage = 5
 
-  const filteredNovels = novels.filter((novel) => {
-    const matchesSearch = novel.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || novel.status === statusFilter;
-    
-    // Lọc theo ngày
-    let matchesDate = true;
-    if (dateRange?.from) {
-      const novelDate = new Date(novel.createdAt);
-      const fromDate = new Date(dateRange.from);
-      fromDate.setHours(0, 0, 0, 0);
-      
-      if (dateRange.to) {
-        const toDate = new Date(dateRange.to);
-        toDate.setHours(23, 59, 59, 999);
-        matchesDate = novelDate >= fromDate && novelDate <= toDate;
-      } else {
-        matchesDate = novelDate >= fromDate;
-      }
+  // Lấy danh sách tiểu thuyết khi trang được tải
+  useEffect(() => {
+    if (user) {
+      fetchNovels();
     }
-    
-    return matchesSearch && matchesStatus && matchesDate;
-  })
+  }, [fetchNovels, user]);
 
-  const totalPages = Math.ceil(filteredNovels.length / ITEMS_PER_PAGE)
+  // Lọc tiểu thuyết theo tìm kiếm và trạng thái
+  const filteredNovels = Array.isArray(novels) 
+    ? novels
+        .filter(novel => 
+          novel.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          novel.description.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        .filter(novel => statusFilter === 'all' || novel.status === statusFilter)
+    : [];
+
+  // Phân trang
+  const totalPages = Math.ceil(filteredNovels.length / itemsPerPage);
   const paginatedNovels = filteredNovels.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  )
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
-  const handleDelete = (id: number) => {
-    setNovels(novels.filter((novel) => novel.id !== id))
-  }
-
-  const handleEdit = (novel: Novel) => {
-    handleOpenEditDialog(novel)
-  }
-
-  const handleViewRatings = (novel: Novel) => {
-    setSelectedNovelForRating(novel);
-    setShowRatingDetails(true);
-  }
-
-  const handleStatusChange = (status: NovelStatus | "all") => {
-    setStatusFilter(status);
-    setCurrentPage(1); // Reset về trang đầu tiên khi thay đổi bộ lọc
-  }
-
-  const handleDateRangeChange = (range: DateRange | undefined) => {
-    setDateRange(range);
-    setCurrentPage(1); // Reset về trang đầu tiên khi thay đổi bộ lọc
-  }
-
-  const clearFilters = () => {
-    setSearchQuery("");
-    setStatusFilter("all");
-    setDateRange(undefined);
-    setCurrentPage(1);
-  }
-
-  const handleOpenEditDialog = (novel?: Novel) => {
-    // Chuyển đổi từ Novel sang NovelData khi cần
-    if (novel) {
-      console.log('Mở dialog với novel:', novel)
-      const novelData: NovelData = {
-        id: novel.id,
-        name: novel.name,
-        image: novel.image,
-        categories: novel.categories,
-        description: novel.description,
-        status: novel.status,
-        views: novel.views,
-        chapters: novel.chapters.map(chapter => ({
-          ...chapter,
-          content: chapter.content || ''
-        })),
-        createdAt: novel.createdAt,
-        averageRating: novel.averageRating || 0,
-        totalRatings: novel.totalRatings || 0
-      }
-      setEditingNovel(novelData)
-    } else {
-      // Tạo novel mới với dữ liệu mặc định
-      setEditingNovel({
-        name: "",
-        image: "",
-        categories: [],
-        description: "",
-        status: NovelStatus.ONGOING,
-        views: 0,
-        chapters: [],
-        createdAt: new Date().toISOString(),
-        averageRating: 0,
-        totalRatings: 0
-      })
+  // Hàm xử lý xóa tiểu thuyết
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa tiểu thuyết này?')) {
+      await deleteNovel(id);
     }
-    setShowEditDialog(true)
-  }
+  };
 
-  const handleSaveNovel = (data: NovelData) => {
-    console.log("Novel saved:", data)
-    
-    if (data.id) {
-      // Chỉnh sửa novel hiện có
-      const updatedNovels = novels.map(novel => 
-        novel.id === data.id ? { 
-          ...novel, 
-          name: data.name,
-          image: data.image,
-          categories: data.categories,
-          description: data.description,
-          status: data.status,
-          chapters: data.chapters
-        } : novel
-      )
-      setNovels(updatedNovels)
-    } else {
-      // Thêm novel mới với ID tự tạo
-      const newNovel: Novel = {
-        ...data,
-        id: novels.length + 1,
-        views: 0,
-        createdAt: new Date().toISOString().split('T')[0],
-        averageRating: 0,
-        totalRatings: 0
-      }
-      setNovels([...novels, newNovel])
+  // Format trạng thái
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'ongoing':
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-200">Đang cập nhật</Badge>;
+      case 'completed':
+        return <Badge className="bg-green-100 text-green-800 border-green-200">Hoàn thành</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
     }
-    
-    setShowEditDialog(false)
+  };
+
+  // Format đánh giá sao
+  const formatRating = (rate: number) => {
+    return (
+      <div className="flex items-center justify-end w-full">
+        <Star className="h-4 w-4 text-yellow-400 mr-1" />
+        <span>{rate.toFixed(1)}</span>
+      </div>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <p className="text-lg">Đang tải dữ liệu...</p>
+      </div>
+    );
   }
 
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">Truyện</h2>
-        <Button onClick={() => handleOpenEditDialog()}>
-          <Plus className="mr-2 h-4 w-4" />
-          Thêm truyện
+      <div className="flex justify-between items-center">
+        <h2 className="text-3xl font-bold tracking-tight">Quản lý tiểu thuyết</h2>
+        <Button>
+          <Link href="/dashboard/novels/add" className="flex items-center">
+            <Plus className="mr-2 h-4 w-4" />
+            Thêm tiểu thuyết
+          </Link>
         </Button>
       </div>
 
-      <div className="flex flex-col space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Tìm kiếm truyện..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8"
-            />
-          </div>
-          
-          <div className="flex-1 max-w-sm">
-            <DatePickerWithRange 
-              date={dateRange} 
-              onDateChange={handleDateRangeChange} 
-            />
-          </div>
-          
-          {(searchQuery || statusFilter !== "all" || dateRange) && (
-            <Button 
-              variant="ghost" 
-              onClick={clearFilters}
-              className="h-10"
-            >
-              Xóa bộ lọc
-            </Button>
-          )}
-        </div>
-        
-        <div className="flex space-x-2">
-          <Button 
-            variant={statusFilter === "all" ? "default" : "outline"} 
-            size="sm"
-            onClick={() => handleStatusChange("all")}
-          >
-            Tất cả
-          </Button>
-          <Button 
-            variant={statusFilter === NovelStatus.ONGOING ? "default" : "outline"} 
-            size="sm"
-            onClick={() => handleStatusChange(NovelStatus.ONGOING)}
-            className={statusFilter === NovelStatus.ONGOING ? "" : "text-blue-600"}
-          >
-            <Clock className="h-4 w-4 mr-1" />
-            Đang tiến hành
-          </Button>
-          <Button 
-            variant={statusFilter === NovelStatus.COMPLETED ? "default" : "outline"} 
-            size="sm"
-            onClick={() => handleStatusChange(NovelStatus.COMPLETED)}
-            className={statusFilter === NovelStatus.COMPLETED ? "" : "text-green-600"}
-          >
-            <CheckCircle className="h-4 w-4 mr-1" />
-            Hoàn thành
-          </Button>
-          <Button 
-            variant={statusFilter === NovelStatus.DROPPED ? "default" : "outline"} 
-            size="sm"
-            onClick={() => handleStatusChange(NovelStatus.DROPPED)}
-            className={statusFilter === NovelStatus.DROPPED ? "" : "text-red-600"}
-          >
-            <XCircle className="h-4 w-4 mr-1" />
-            Đã drop
-          </Button>
-        </div>
-        
-        {dateRange && (
-          <div className="flex items-center text-sm text-muted-foreground">
-            <Calendar className="h-4 w-4 mr-1" />
-            <span>
-              Lọc từ ngày: {dateRange.from ? format(dateRange.from, 'dd/MM/yyyy', { locale: vi }) : ''}
-              {dateRange.to ? ` đến ${format(dateRange.to, 'dd/MM/yyyy', { locale: vi })}` : ''}
-            </span>
-          </div>
-        )}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Tổng số tiểu thuyết</CardTitle>
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{Array.isArray(novels) ? novels.length : 0}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Đang cập nhật</CardTitle>
+            <BookOpen className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {Array.isArray(novels) ? novels.filter(novel => novel.status === 'ongoing').length : 0}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Hoàn thành</CardTitle>
+            <BookOpen className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {Array.isArray(novels) ? novels.filter(novel => novel.status === 'completed').length : 0}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="rounded-md border">
-        <div className="min-h-[500px]">
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Tìm kiếm tiểu thuyết..."
+              className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2">
+            <select 
+              className="border rounded px-3 py-1"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">Tất cả</option>
+              <option value="ongoing">Đang cập nhật</option>
+              <option value="completed">Hoàn thành</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Tên truyện</TableHead>
+                <TableHead>Tiểu thuyết</TableHead>
+                <TableHead>Tác giả</TableHead>
                 <TableHead>Trạng thái</TableHead>
-                <TableHead>Chương</TableHead>
-                <TableHead>Đánh giá</TableHead>
-                <TableHead>Lượt xem</TableHead>
-                <TableHead>Ngày tạo</TableHead>
+                <TableHead className="text-right">Lượt xem</TableHead>
+                <TableHead className="text-right">Đánh giá</TableHead>
                 <TableHead className="text-right">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedNovels.map((novel) => (
-                <TableRow key={novel.id}>
-                  <TableCell>{novel.id}</TableCell>
-                  <TableCell className="font-medium">{novel.name}</TableCell>
-                  <TableCell>{renderNovelStatus(novel.status)}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span>{novel.chapters.length} chương</span>
-                      <span className="text-xs text-muted-foreground">
-                        {novel.chapters.filter(chapter => chapter.isPremium).length} chương trả phí
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col space-y-1">
-                      <div className="flex items-center">
-                        <div className="flex mr-2">
-                          {renderStars(novel.averageRating || 0)}
+              {paginatedNovels && Array.isArray(paginatedNovels) && paginatedNovels.filter(novel => novel != null).map((novel) => (
+                <TableRow key={novel._id || Math.random().toString()}>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center space-x-3">
+                      <div className="relative h-12 w-10 overflow-hidden rounded">
+                        {novel.imageUrl && (
+                          <Image
+                            src={novel.imageUrl}
+                            alt={novel.title}
+                            width={40}
+                            height={48}
+                            className="object-cover"
+                            unoptimized
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-medium">{novel.title}</div>
+                        <div className="text-sm text-muted-foreground truncate max-w-xs">
+                          {novel.description?.substring(0, 50) || ''}...
                         </div>
-                        <span className="text-sm font-medium">
-                          {novel.averageRating || 0}
-                        </span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">
-                          {novel.totalRatings || 0} đánh giá
-                        </span>
-                        <span className="text-xs text-blue-500">
-                          {starsToPoints(novel.averageRating || 0).toFixed(1)}/10 điểm
-                        </span>
-                      </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="mt-1 text-blue-500 hover:text-blue-700 p-0 h-auto"
-                        onClick={() => handleViewRatings(novel)}
-                      >
-                        Chi tiết
-                      </Button>
                     </div>
                   </TableCell>
-                  <TableCell>{novel.views.toLocaleString()}</TableCell>
-                  <TableCell>{format(new Date(novel.createdAt), 'dd/MM/yyyy', { locale: vi })}</TableCell>
+                  <TableCell>
+                    {typeof novel.idUser === 'object' ? 
+                      (novel.idUser.name || novel.idUser.username) : 
+                      'Chưa có tác giả'
+                    }
+                  </TableCell>
+                  <TableCell>{getStatusBadge(novel.status)}</TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEdit(novel)}
-                      className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(novel.id)}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex justify-end">
+                      {novel.view ? novel.view.toLocaleString() : 0}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">{novel.rate ? formatRating(novel.rate) : formatRating(0)}</TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Mở menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>
+                          <Link href={`/dashboard/novels/${novel._id}`} className="flex items-center">
+                            <Eye className="mr-2 h-4 w-4" />
+                            <span>Chi tiết</span>
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Link href={`/dashboard/novels/${novel._id}/edit`} className="flex items-center">
+                            <Edit className="mr-2 h-4 w-4" />
+                            <span>Chỉnh sửa</span>
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDelete(novel._id)}>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          <span>Xóa</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
-              {paginatedNovels.length < ITEMS_PER_PAGE && (
-                Array(ITEMS_PER_PAGE - paginatedNovels.length).fill(0).map((_, index) => (
-                  <TableRow key={`empty-${index}`}>
-                    <TableCell colSpan={8}>&nbsp;</TableCell>
-                  </TableRow>
-                ))
-              )}
             </TableBody>
           </Table>
         </div>
+
+        {/* Phân trang */}
+        {totalPages > 1 && (
+          <div className="flex justify-center mt-4">
+            <div className="flex gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                Trước
+              </Button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <Button
+                  key={page}
+                  variant={currentPage === page ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </Button>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                Sau
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
-
-      <div className="border-t">
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-        />
-      </div>
-
-      {/* Dialog for viewing ratings */}
-      <Dialog open={showRatingDetails} onOpenChange={setShowRatingDetails}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Chi tiết đánh giá - {selectedNovelForRating?.name}</DialogTitle>
-          </DialogHeader>
-          {selectedNovelForRating && (
-            <RatingDetails novel={selectedNovelForRating} />
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog chỉnh sửa truyện với giao diện mới */}
-      <NovelEditDialog
-        open={showEditDialog}
-        onOpenChange={setShowEditDialog}
-        initialData={editingNovel}
-        onSave={handleSaveNovel}
-        categories={novelCategories}
-      />
-
-      <style jsx global>{`
-        .fill-half {
-          mask-image: linear-gradient(to right, #000 50%, transparent 50%);
-        }
-      `}</style>
     </div>
-  )
+  );
 }

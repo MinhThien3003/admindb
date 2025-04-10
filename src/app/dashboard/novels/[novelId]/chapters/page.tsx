@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { 
@@ -36,28 +37,32 @@ import { ChapterPriceForm } from "@/components/dashboard/chapter-price-form"
 
 // Định nghĩa interface cho chương
 interface Chapter {
-  id: number
+  _id?: string
+  id?: number
+  idNovel?: string
   title: string
   order: number
-  wordCount: number
-  views: number
-  isPremium: boolean
-  price: number
-  createdAt: Date
-  updatedAt: Date
+  wordCount?: number
+  view?: number
+  role?: string
+  isPremium?: boolean
+  price?: number
+  createdAt?: Date
+  updatedAt?: Date
 }
 
 // Định nghĩa interface cho truyện
 interface Novel {
-  id: number
+  _id?: string
+  id?: number
   title: string
-  author: string
-  coverImage: string
-  description: string
-  status: string
-  totalChapters: number
-  totalViews: number
-  totalRevenue: number
+  author?: string
+  coverImage?: string
+  description?: string
+  status?: string
+  totalChapters?: number
+  totalViews?: number
+  totalRevenue?: number
 }
 
 // Hàm định dạng số tiền
@@ -89,7 +94,7 @@ const initialChapters: Chapter[] = [
     title: "Khởi đầu mới",
     order: 1,
     wordCount: 2500,
-    views: 3200,
+    view: 3200,
     isPremium: false,
     price: 0,
     createdAt: new Date("2024-01-15"),
@@ -100,7 +105,7 @@ const initialChapters: Chapter[] = [
     title: "Gặp gỡ định mệnh",
     order: 2,
     wordCount: 2800,
-    views: 2900,
+    view: 2900,
     isPremium: false,
     price: 0,
     createdAt: new Date("2024-01-20"),
@@ -111,7 +116,7 @@ const initialChapters: Chapter[] = [
     title: "Cuộc phiêu lưu bắt đầu",
     order: 3,
     wordCount: 3100,
-    views: 2700,
+    view: 2700,
     isPremium: false,
     price: 0,
     createdAt: new Date("2024-01-25"),
@@ -122,7 +127,7 @@ const initialChapters: Chapter[] = [
     title: "Cánh cổng thời gian",
     order: 4,
     wordCount: 3500,
-    views: 2500,
+    view: 2500,
     isPremium: true,
     price: 15000,
     createdAt: new Date("2024-01-30"),
@@ -133,77 +138,61 @@ const initialChapters: Chapter[] = [
     title: "Lời tiên tri",
     order: 5,
     wordCount: 2900,
-    views: 2300,
+    view: 2300,
     isPremium: true,
     price: 15000,
     createdAt: new Date("2024-02-05"),
     updatedAt: new Date("2024-02-05")
-  },
-  {
-    id: 6,
-    title: "Đối mặt thử thách",
-    order: 6,
-    wordCount: 3200,
-    views: 2100,
-    isPremium: true,
-    price: 20000,
-    createdAt: new Date("2024-02-10"),
-    updatedAt: new Date("2024-02-10")
-  },
-  {
-    id: 7,
-    title: "Bí mật được hé lộ",
-    order: 7,
-    wordCount: 3400,
-    views: 1900,
-    isPremium: true,
-    price: 20000,
-    createdAt: new Date("2024-02-15"),
-    updatedAt: new Date("2024-02-15")
-  },
-  {
-    id: 8,
-    title: "Kết thúc hành trình",
-    order: 8,
-    wordCount: 3800,
-    views: 1800,
-    isPremium: true,
-    price: 25000,
-    createdAt: new Date("2024-02-20"),
-    updatedAt: new Date("2024-02-20")
-  },
-  {
-    id: 9,
-    title: "Khám phá mới",
-    order: 9,
-    wordCount: 3000,
-    views: 1600,
-    isPremium: true,
-    price: 25000,
-    createdAt: new Date("2024-02-25"),
-    updatedAt: new Date("2024-02-25")
-  },
-  {
-    id: 10,
-    title: "Phần kết",
-    order: 10,
-    wordCount: 4000,
-    views: 1500,
-    isPremium: true,
-    price: 30000,
-    createdAt: new Date("2024-03-01"),
-    updatedAt: new Date("2024-03-01")
   }
 ];
 
 export default function ChaptersPage({ params }: { params: { novelId: string } }) {
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters)
+  const [loading, setLoading] = useState(true)
+  const [novelData, setNovelData] = useState<Novel>(novel)
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null)
   const [isPriceDialogOpen, setIsPriceDialogOpen] = useState(false)
-  const ITEMS_PER_PAGE = 5
+  const ITEMS_PER_PAGE = 10
+  
+  // Tải dữ liệu chương từ API
+  useEffect(() => {
+    const fetchChapters = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch(`/api/chapters?novelId=${params.novelId}`)
+        
+        if (!response.ok) {
+          throw new Error(`API trả về lỗi: ${response.status}`)
+        }
+        
+        const data = await response.json()
+        console.log("Dữ liệu chapters từ API:", data)
+        
+        // Chuẩn hóa dữ liệu chapters
+        const normalizedChapters = Array.isArray(data) ? data.map(chapter => ({
+          ...chapter,
+          id: chapter._id || chapter.id,
+          isPremium: chapter.role === 'vip',
+          view: chapter.view || 0,
+          wordCount: chapter.wordCount || 0,
+          createdAt: chapter.createdAt ? new Date(chapter.createdAt) : new Date(),
+          updatedAt: chapter.updatedAt ? new Date(chapter.updatedAt) : new Date()
+        })) : []
+        
+        setChapters(normalizedChapters)
+      } catch (error) {
+        console.error("Lỗi khi tải danh sách chương:", error)
+        // Giữ dữ liệu mẫu trong trường hợp lỗi
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchChapters()
+  }, [params.novelId])
 
   // Lọc và sắp xếp chương
   const filteredChapters = chapters
@@ -226,8 +215,8 @@ export default function ChaptersPage({ params }: { params: { novelId: string } }
   );
 
   // Xử lý xóa chương
-  const handleDeleteChapter = (id: number) => {
-    setChapters(chapters.filter((chapter) => chapter.id !== id));
+  const handleDeleteChapter = (id: number | string) => {
+    setChapters(chapters.filter((chapter) => (chapter.id || chapter._id) !== id));
   };
 
   // Xử lý thay đổi thứ tự sắp xếp
@@ -244,8 +233,14 @@ export default function ChaptersPage({ params }: { params: { novelId: string } }
   // Xử lý lưu giá chương
   const handleSavePrice = (chapterId: number, isPremium: boolean, price: number) => {
     setChapters(chapters.map((chapter) => 
-      chapter.id === chapterId 
-        ? { ...chapter, isPremium, price, updatedAt: new Date() } 
+      (chapter.id === chapterId || chapter._id === chapterId)
+        ? { 
+            ...chapter, 
+            isPremium, 
+            role: isPremium ? 'vip' : 'normal',
+            price, 
+            updatedAt: new Date() 
+          } 
         : chapter
     ));
     setIsPriceDialogOpen(false);
@@ -254,18 +249,18 @@ export default function ChaptersPage({ params }: { params: { novelId: string } }
 
   // Tính tổng doanh thu từ các chương premium
   const totalPremiumRevenue = chapters
-    .filter(chapter => chapter.isPremium)
-    .reduce((sum, chapter) => sum + (chapter.price * chapter.views), 0);
+    .filter(chapter => chapter.isPremium || chapter.role === 'vip')
+    .reduce((sum, chapter) => sum + ((chapter.price || 0) * (chapter.view || 0)), 0);
 
   // Tính tổng số chương premium
-  const totalPremiumChapters = chapters.filter(chapter => chapter.isPremium).length;
+  const totalPremiumChapters = chapters.filter(chapter => chapter.isPremium || chapter.role === 'vip').length;
 
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">{novel.title}</h2>
-          <p className="text-muted-foreground">Tác giả: {novel.author}</p>
+          <h2 className="text-3xl font-bold tracking-tight">{novelData.title}</h2>
+          <p className="text-muted-foreground">Quản lý danh sách các chương</p>
         </div>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
@@ -279,7 +274,7 @@ export default function ChaptersPage({ params }: { params: { novelId: string } }
             <Eye className="h-4 w-4 text-blue-500" />
             <span className="text-sm font-medium">Tổng lượt xem</span>
           </div>
-          <p className="mt-1 text-2xl font-bold">{novel.totalViews.toLocaleString()}</p>
+          <p className="mt-1 text-2xl font-bold">{chapters.reduce((sum, chapter) => sum + (chapter.view || 0), 0).toLocaleString()}</p>
         </div>
         <div className="rounded-lg border p-3">
           <div className="flex items-center gap-2">
@@ -329,64 +324,67 @@ export default function ChaptersPage({ params }: { params: { novelId: string } }
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedChapters.map((chapter) => (
-                <TableRow key={chapter.id}>
-                  <TableCell>{chapter.order}</TableCell>
-                  <TableCell className="font-medium">{chapter.title}</TableCell>
-                  <TableCell>{chapter.views.toLocaleString()}</TableCell>
-                  <TableCell>{chapter.wordCount.toLocaleString()}</TableCell>
-                  <TableCell>
-                    {chapter.isPremium ? (
-                      <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200 flex items-center gap-1">
-                        <Lock className="h-3 w-3" />
-                        Premium
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 flex items-center gap-1">
-                        <Unlock className="h-3 w-3" />
-                        Miễn phí
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {chapter.isPremium ? formatCurrency(chapter.price) : "Miễn phí"}
-                  </TableCell>
-                  <TableCell>{format(chapter.createdAt, "dd/MM/yyyy")}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleOpenPriceDialog(chapter)}
-                        className="text-green-500 hover:text-green-700 hover:bg-green-50"
-                      >
-                        <DollarSign className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteChapter(chapter.id)}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-10">Đang tải dữ liệu...</TableCell>
                 </TableRow>
-              ))}
-              {paginatedChapters.length < ITEMS_PER_PAGE && (
-                Array(ITEMS_PER_PAGE - paginatedChapters.length).fill(0).map((_, index) => (
-                  <TableRow key={`empty-${index}`}>
-                    <TableCell colSpan={8}>&nbsp;</TableCell>
+              ) : paginatedChapters.length > 0 ? (
+                paginatedChapters.map((chapter) => (
+                  <TableRow key={chapter._id || chapter.id}>
+                    <TableCell>{chapter.order}</TableCell>
+                    <TableCell className="font-medium">{chapter.title}</TableCell>
+                    <TableCell>{(chapter.view || 0).toLocaleString()}</TableCell>
+                    <TableCell>{(chapter.wordCount || 0).toLocaleString()}</TableCell>
+                    <TableCell>
+                      {chapter.isPremium || chapter.role === 'vip' ? (
+                        <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200 flex items-center gap-1">
+                          <Lock className="h-3 w-3" />
+                          Premium
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 flex items-center gap-1">
+                          <Unlock className="h-3 w-3" />
+                          Miễn phí
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {chapter.isPremium || chapter.role === 'vip' ? formatCurrency(chapter.price || 0) : "Miễn phí"}
+                    </TableCell>
+                    <TableCell>{format(chapter.createdAt || new Date(), "dd/MM/yyyy")}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleOpenPriceDialog(chapter)}
+                          className="text-green-500 hover:text-green-700 hover:bg-green-50"
+                        >
+                          <DollarSign className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteChapter(chapter._id || chapter.id || 0)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-10">Không có chương nào</TableCell>
+                </TableRow>
               )}
             </TableBody>
           </Table>
@@ -409,11 +407,11 @@ export default function ChaptersPage({ params }: { params: { novelId: string } }
           </DialogHeader>
           {selectedChapter && (
             <ChapterPriceForm
-              chapterId={selectedChapter.id}
+              chapterId={selectedChapter.id || Number(selectedChapter._id) || 0}
               chapterTitle={selectedChapter.title}
-              novelTitle={novel.title}
-              isPremium={selectedChapter.isPremium}
-              currentPrice={selectedChapter.price}
+              novelTitle={novelData.title}
+              isPremium={selectedChapter.isPremium || selectedChapter.role === 'vip'}
+              currentPrice={selectedChapter.price || 0}
               onSave={handleSavePrice}
               onCancel={() => setIsPriceDialogOpen(false)}
             />

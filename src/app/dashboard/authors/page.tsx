@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,29 +18,39 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Search, Trash2, Pencil, DollarSign, Eye, User, Trophy, Star, Award, Shield, Zap, Bell } from "lucide-react"
+import { Search, Trash2, Pencil, DollarSign, Eye, Trophy, Star, Award, Shield, Zap, Download, UserPlus, Coins } from "lucide-react"
 import { format } from "date-fns"
 import { Pagination } from "@/components/ui/pagination"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AuthorRequests, AuthorRequest } from "@/components/dashboard/author-requests"
+import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
+import { DatePickerWithRange } from "@/components/ui/date-range-picker"
+import { DateRange } from "react-day-picker"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface Author {
-  id: number;
-  username: string;
-  email: string;
-  password: string;
-  gender: 'male' | 'female' | 'other';
-  level: number;
-  experiencePoints: number;
-  bio: string;
-  createdAt: Date;
-  avatar: string;
-  totalViews: number;
-  totalTransactions: number;
-  totalEarnings: number;
+  _id: string;          // ID từ MongoDB
+  username: string;     // Tên đăng nhập
+  email: string;        // Email
+  fullname?: string;    // Tên đầy đủ
+  password: string;     // Mật khẩu (đã mã hóa)
+  gender: 'Male' | 'Female'; // Giới tính
+  role: 'reader' | 'author'; // Vai trò
+  avatar: string;       // URL ảnh đại diện
+  createdAt: Date;      // Ngày tạo
+  updatedAt: Date;      // Ngày cập nhật
+  status?: 'active' | 'inactive' | 'banned'; // Trạng thái tài khoản
+  
+  // Các trường bổ sung cho UI (có thể không có trong API)
+  level?: number;
+  experiencePoints?: number;
+  bio?: string;
+  totalViews?: number;
+  totalTransactions?: number;
+  totalEarnings?: number;
 }
 
 // Dữ liệu mẫu về cấp độ từ trang levels
@@ -126,12 +136,12 @@ const authorLevels = [
 ];
 
 // Hàm lấy thông tin cấp độ dựa trên điểm kinh nghiệm
-const getAuthorLevel = (exp: number) => {
+const getAuthorLevel = (exp: number = 0) => {
   return authorLevels.find(level => exp >= level.minExp && exp <= level.maxExp) || authorLevels[authorLevels.length - 1];
 }
 
 // Hàm định dạng số lượng view
-const formatViews = (views: number): string => {
+const formatViews = (views: number = 0): string => {
   if (views >= 1000000) {
     return `${(views / 1000000).toFixed(1)}M`;
   } else if (views >= 1000) {
@@ -151,125 +161,161 @@ const formatCurrency = (amount: number): string => {
 };
 
 // Dữ liệu mẫu về tác giả
-const initialAuthors: Author[] = [
-  {
-    id: 1,
-    username: "nguyenvana",
-    email: "nguyenvana@example.com",
-    password: "123456",
-    gender: "male",
-    level: 50,
-    experiencePoints: 75000,
-    bio: "Tác giả chuyên viết truyện ngôn tình, hiện đại",
-    createdAt: new Date("2024-01-15"),
-    avatar: "https://ui-avatars.com/api/?name=Nguyen+Van+A",
-    totalViews: 150000,
-    totalTransactions: 2500,
-    totalEarnings: 25000000
-  },
-  {
-    id: 2, 
-    username: "tranthib",
-    email: "tranthib@example.com",
-    password: "123456",
-    gender: "female",
-    level: 30,
-    experiencePoints: 25000,
-    bio: "Tác giả truyện ngắn, tản văn",
-    createdAt: new Date("2024-02-01"),
-    avatar: "https://ui-avatars.com/api/?name=Tran+Thi+B",
-    totalViews: 80000,
-    totalTransactions: 1200,
-    totalEarnings: 12000000
-  },
-  {
-    id: 3,
-    username: "levanc",
-    email: "levanc@example.com", 
-    password: "123456",
-    gender: "male",
-    level: 10,
-    experiencePoints: 2000,
-    bio: "Tác giả mới, chuyên viết truyện kiếm hiệp",
-    createdAt: new Date("2024-03-01"),
-    avatar: "https://ui-avatars.com/api/?name=Le+Van+C",
-    totalViews: 20000,
-    totalTransactions: 300,
-    totalEarnings: 3000000
-  }
-];
+const initialAuthors: Author[] = [];
 
 // Dữ liệu mẫu về yêu cầu trở thành tác giả
-const initialAuthorRequests: AuthorRequest[] = [
-  {
-    id: 1,
-    userId: 101,
-    username: "vothanhd",
-    email: "vothanhd@example.com",
-    avatar: "https://ui-avatars.com/api/?name=Vo+Thanh+D",
-    createdAt: new Date("2024-04-01"),
-    status: "pending",
-    reason: "Muốn chia sẻ những tác phẩm văn học của mình",
-    bio: "Tốt nghiệp ngành Văn học Việt Nam, ĐH Khoa học Xã hội và Nhân văn. Đã có 3 năm kinh nghiệm viết truyện ngắn cho một số trang web văn học.",
-    experience: "Đã xuất bản 1 tập truyện ngắn 'Những ngày xanh biếc' năm 2022. Đã có một số truyện ngắn được đăng trên các tạp chí văn học.",
-    genres: ["Ngôn Tình", "Đô Thị", "Truyện Teen"],
-    samples: ["/samples/vothanhd_sample1.pdf", "/samples/vothanhd_sample2.pdf"]
-  },
-  {
-    id: 2,
-    userId: 102,
-    username: "phamthue",
-    email: "phamthue@example.com",
-    avatar: "https://ui-avatars.com/api/?name=Pham+Thu+E",
-    createdAt: new Date("2024-04-03"),
-    status: "pending",
-    reason: "Yêu thích viết truyện kiếm hiệp và muốn chia sẻ với độc giả",
-    bio: "Tôi là người yêu thích văn học cổ điển Trung Quốc và các truyện kiếm hiệp từ nhỏ. Tôi đã viết truyện từ năm 18 tuổi và đã có một lượng độc giả nhất định trên các diễn đàn.",
-    experience: "Đã viết và hoàn thành 3 bộ truyện kiếm hiệp dài kỳ trên diễn đàn, mỗi bộ trên 500.000 chữ.",
-    genres: ["Kiếm Hiệp", "Tiên Hiệp", "Huyền Huyễn"],
-    samples: ["/samples/phamthue_sample1.pdf", "/samples/phamthue_sample2.docx", "/samples/phamthue_sample3.docx"]
-  },
-  {
-    id: 3,
-    userId: 103,
-    username: "tranthif",
-    email: "tranthif@example.com",
-    avatar: "https://ui-avatars.com/api/?name=Tran+Thi+F",
-    createdAt: new Date("2024-04-05"),
-    status: "approved",
-    reason: "Muốn chia sẻ những câu chuyện về tình yêu và cuộc sống",
-    bio: "Tôi là giáo viên dạy văn ở trường THPT, có niềm đam mê với văn chương và muốn chia sẻ những câu chuyện ý nghĩa về tình yêu và cuộc sống.",
-    experience: "Đã có 5 năm kinh nghiệm viết blog cá nhân về các chủ đề tình yêu, gia đình. Một số bài viết đã được chia sẻ rộng rãi trên mạng xã hội.",
-    genres: ["Ngôn Tình", "Truyện Teen", "Đời Thường"],
-    samples: ["/samples/tranthif_sample1.docx", "/samples/tranthif_sample2.pdf"],
-    reviewedBy: "Admin",
-    reviewedAt: new Date("2024-04-06")
-  },
-  {
-    id: 4,
-    userId: 104,
-    username: "levanx",
-    email: "levanx@example.com",
-    avatar: "https://ui-avatars.com/api/?name=Le+Van+X",
-    createdAt: new Date("2024-04-02"),
-    status: "rejected",
-    reason: "Muốn trở thành tác giả trên nền tảng",
-    bio: "Tôi là sinh viên đam mê viết lách và muốn chia sẻ tác phẩm của mình.",
-    experience: "Mới bắt đầu viết truyện được 6 tháng. Chưa có tác phẩm nào được xuất bản.",
-    genres: ["Kinh Dị", "Trinh Thám"],
-    samples: ["/samples/levanx_sample1.txt"],
-    reviewedBy: "Admin",
-    reviewedAt: new Date("2024-04-03"),
-    rejectionReason: "Mẫu truyện chưa đạt yêu cầu về chất lượng. Bạn cần trau dồi thêm kỹ năng viết và gửi lại sau."
-  }
-];
+const initialAuthorRequests: AuthorRequest[] = [];
+
+// Hàm hiển thị màu cho trạng thái
+const getStatusBadge = (status: string) => {
+  const statusClasses: Record<string, string> = {
+    active: "bg-green-100 text-green-800 border-green-200",
+    inactive: "bg-gray-100 text-gray-800 border-gray-200",
+    banned: "bg-red-100 text-red-800 border-red-200"
+  };
+
+  const statusLabels: Record<string, string> = {
+    active: "Hoạt động",
+    inactive: "Không hoạt động",
+    banned: "Bị cấm"
+  };
+
+  return (
+    <Badge variant="outline" className={statusClasses[status]}>
+      {statusLabels[status]}
+    </Badge>
+  );
+};
+
+// Hàm hiển thị giới tính
+const getGenderBadge = (gender: string) => {
+  const genderClasses: Record<string, string> = {
+    Male: "bg-blue-100 text-blue-800 border-blue-200",
+    Female: "bg-pink-100 text-pink-800 border-pink-200"
+  };
+
+  const genderLabels: Record<string, string> = {
+    Male: "Nam",
+    Female: "Nữ"
+  };
+
+  return (
+    <Badge variant="outline" className={genderClasses[gender]}>
+      {genderLabels[gender]}
+    </Badge>
+  );
+};
 
 export default function AuthorsPage() {
-  const [authors, setAuthors] = useState(initialAuthors);
+  const [authors, setAuthors] = useState<Author[]>(initialAuthors)
+  const [filteredAuthors, setFilteredAuthors] = useState<Author[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [levelFilter, setLevelFilter] = useState<string>("all")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [genderFilter, setGenderFilter] = useState<string>("all")
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [isLoading, setIsLoading] = useState(false)
+  const ITEMS_PER_PAGE = 10
+  
+  // Áp dụng các bộ lọc cho danh sách tác giả
+  useEffect(() => {
+    // Lọc tác giả theo các điều kiện
+    const filtered = authors.filter(author => {
+      // Lọc theo từ khóa tìm kiếm
+      const matchesSearch = 
+        author.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        author.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (author.fullname?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
+      
+      // Lọc theo cấp độ
+      const matchesLevel = levelFilter === "all" || author.level?.toString() === levelFilter;
+      
+      // Lọc theo trạng thái
+      const matchesStatus = statusFilter === "all" || author.status === statusFilter;
+      
+      // Lọc theo giới tính
+      const matchesGender = genderFilter === "all" || author.gender === genderFilter;
+      
+      // Lọc theo khoảng thời gian
+      const matchesDateRange = !dateRange || !dateRange.from || !dateRange.to || 
+        (author.createdAt >= dateRange.from && 
+         author.createdAt <= new Date(dateRange.to.getTime() + 86400000));
+      
+      return matchesSearch && matchesLevel && matchesStatus && matchesGender && matchesDateRange;
+    });
+    
+    setFilteredAuthors(filtered);
+  }, [authors, searchQuery, levelFilter, statusFilter, genderFilter, dateRange]);
+
+  // Tính toán số trang
+  const totalPages = Math.ceil(filteredAuthors.length / ITEMS_PER_PAGE);
+  
+  // Lấy tác giả cho trang hiện tại
+  const paginatedAuthors = filteredAuthors.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Tính tổng doanh thu của các tác giả
+  const totalEarnings = filteredAuthors.reduce((sum, author) => sum + (author.totalEarnings || 0), 0);
+  
+  // Tổng lượt xem của tất cả tác giả
+  const totalViews = filteredAuthors.reduce((sum, author) => sum + (author.totalViews || 0), 0);
+
+  // Tải danh sách tác giả từ API
+  const fetchAuthors = async () => {
+    try {
+      setIsLoading(true);
+      console.log('Đang tải dữ liệu tác giả từ API...');
+
+      const response = await fetch('/api/authors');
+      console.log('API Response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('API Error:', errorData);
+        throw new Error(`Không thể tải danh sách tác giả: ${response.status} - ${errorData}`);
+      }
+
+      const data = await response.json();
+      console.log('Nhận được dữ liệu:', data.length, 'tác giả');
+
+      if (!Array.isArray(data)) {
+        console.error('Dữ liệu không phải là mảng:', data);
+        throw new Error('Dữ liệu không đúng định dạng');
+      }
+
+      // Chuyển đổi dữ liệu API để phù hợp với cấu trúc UI hiện tại
+      const formattedAuthors = data.map((author: Partial<Author>) => ({
+        ...author,
+        // Đảm bảo dữ liệu có giá trị mặc định khi cần thiết
+        level: author.level || 1,
+        experiencePoints: author.experiencePoints || 0,
+        bio: author.bio || "Chưa cập nhật",
+        totalViews: author.totalViews || 0,
+        totalTransactions: author.totalTransactions || 0,
+        totalEarnings: author.totalEarnings || 0,
+        status: author.status || "active",
+        createdAt: new Date(author.createdAt || new Date()),
+        updatedAt: new Date(author.updatedAt || new Date())
+      }));
+
+      setAuthors(formattedAuthors as Author[]);
+    } catch (error) {
+      console.error('Lỗi khi tải dữ liệu tác giả:', error);
+      toast.error('Không thể tải dữ liệu tác giả');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Tải dữ liệu khi component mount
+  useEffect(() => {
+    fetchAuthors();
+  }, []);
+
   const [authorRequests, setAuthorRequests] = useState<AuthorRequest[]>(initialAuthorRequests);
-  const [activeTab, setActiveTab] = useState<string>("authors");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   
   // Đếm số lượng yêu cầu đang chờ phê duyệt
   const pendingCount = authorRequests.filter(req => req.status === "pending").length;
@@ -293,19 +339,21 @@ export default function AuthorsPage() {
     const request = authorRequests.find(req => req.id === requestId);
     if (request) {
       const newAuthor: Author = {
-        id: authors.length + 1,
+        _id: String(Date.now()),
         username: request.username,
         email: request.email,
         password: "defaultPassword", // Cần một cơ chế tạo mật khẩu an toàn hơn
-        gender: "other", // Giá trị mặc định, có thể cập nhật sau
-      level: 1,
-      experiencePoints: 0,
+        gender: "Male", // Giá trị mặc định, có thể cập nhật sau
+        role: "author",
+        level: 1,
+        experiencePoints: 0,
         bio: request.bio,
-      createdAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
         avatar: request.avatar,
-      totalViews: 0,
-      totalTransactions: 0,
-      totalEarnings: 0
+        totalViews: 0,
+        totalTransactions: 0,
+        totalEarnings: 0
       };
       
       setAuthors(prevAuthors => [...prevAuthors, newAuthor]);
@@ -334,69 +382,132 @@ export default function AuthorsPage() {
     }
   };
 
-  // Tìm kiếm tác giả
-  const filteredAuthors = authors.filter(author => 
-    author.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    author.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Xuất dữ liệu ra file CSV
+  const exportToCSV = () => {
+    const headers = [
+      "ID",
+      "Tên người dùng",
+      "Email",
+      "Cấp độ",
+      "Lượt xem",
+      "Doanh thu",
+      "Trạng thái",
+      "Ngày tạo"
+    ].join(",");
+
+    const csvData = filteredAuthors.map(author => [
+      author._id,
+      author.username,
+      author.email,
+      getAuthorLevel(author.experiencePoints || 0).title,
+      author.totalViews || 0,
+      author.totalEarnings || 0,
+      author.status || "active",
+      format(author.createdAt, "dd/MM/yyyy")
+    ].join(",")).join("\n");
+
+    const csv = `${headers}\n${csvData}`;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `authors_${format(new Date(), "yyyyMMdd")}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Hiển thị loading state
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4">Đang tải dữ liệu tác giả...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Quản Lý Tác Giả</h1>
+    <div className="flex-1 space-y-4 p-8 pt-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight">Quản lý tác giả</h2>
         <div className="flex gap-2">
           <Button 
-            variant="outline" 
-            onClick={() => setActiveTab(activeTab === "authors" ? "requests" : "authors")}
+            onClick={exportToCSV}
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
           >
-            {activeTab === "authors" ? (
-              <>
-                <Bell className="h-4 w-4 mr-2" />
-                Yêu cầu
-                {pendingCount > 0 && (
-                  <span className="ml-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                    {pendingCount}
-                  </span>
-                )}
-              </>
-            ) : (
-              <>
-                <User className="h-4 w-4 mr-2" />
-                Tác giả
-              </>
-            )}
+            <span className="sr-only">Xuất dữ liệu</span>
+            <Download className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Tổng doanh thu
+            </CardTitle>
+            <DollarSign className="h-4 w-4 text-yellow-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">{formatCurrency(totalEarnings)}</div>
+            <p className="text-xs text-muted-foreground">
+              Từ {filteredAuthors.length} tác giả
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Tổng lượt xem
+            </CardTitle>
+            <Eye className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{formatViews(totalViews)}</div>
+            <p className="text-xs text-muted-foreground">
+              Trên tất cả truyện của tác giả
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="list">
         <TabsList className="mb-4">
-          <TabsTrigger value="authors">Danh sách tác giả</TabsTrigger>
-          <TabsTrigger value="requests">
-            Yêu cầu đăng ký
+          <TabsTrigger value="list">Danh sách tác giả</TabsTrigger>
+          <TabsTrigger value="requests" className="relative">
+            Yêu cầu trở thành tác giả
             {pendingCount > 0 && (
-              <span className="ml-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                 {pendingCount}
               </span>
             )}
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="authors">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center w-full max-w-sm space-x-2">
-          <Input
-            placeholder="Tìm kiếm tác giả..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="max-w-sm"
+        <TabsContent value="list" className="space-y-4">
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Tìm kiếm tác giả..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8"
               />
-              <Button variant="ghost" size="icon">
-                <Search className="h-4 w-4" />
-              </Button>
             </div>
-            <div className="flex gap-2">
-              <Select defaultValue="all">
+            <div className="flex flex-col md:flex-row gap-2">
+              <Select
+                value={levelFilter}
+                onValueChange={setLevelFilter}
+              >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Cấp độ" />
                 </SelectTrigger>
@@ -409,113 +520,171 @@ export default function AuthorsPage() {
                   ))}
                 </SelectContent>
               </Select>
-        </div>
-      </div>
+              <Select
+                value={statusFilter}
+                onValueChange={setStatusFilter}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                  <SelectItem value="active">Hoạt động</SelectItem>
+                  <SelectItem value="inactive">Không hoạt động</SelectItem>
+                  <SelectItem value="banned">Bị cấm</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={genderFilter}
+                onValueChange={setGenderFilter}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Giới tính" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="Male">Nam</SelectItem>
+                  <SelectItem value="Female">Nữ</SelectItem>
+                </SelectContent>
+              </Select>
+              <DatePickerWithRange
+                date={dateRange}
+                onDateChange={setDateRange}
+              />
+            </div>
+          </div>
 
-          <div className="bg-white rounded-md shadow overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                  <TableHead className="w-[250px]">Tác giả</TableHead>
-                <TableHead>Cấp độ</TableHead>
-                  <TableHead>Ngày tham gia</TableHead>
-                <TableHead>Lượt xem</TableHead>
-                  <TableHead>Doanh thu</TableHead>
-                  <TableHead className="text-right">Hành động</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-                {filteredAuthors.map((author) => {
-                const authorLevel = getAuthorLevel(author.experiencePoints);
-                return (
-                  <TableRow key={author.id}>
-                    <TableCell>
-                        <div className="flex items-center space-x-3">
-                          <Avatar>
-                            <AvatarImage src={author.avatar} alt={author.username} />
-                            <AvatarFallback>{author.username.charAt(0).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                            <div className="font-medium">{author.username}</div>
-                            <div className="text-sm text-muted-foreground">{author.email}</div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className={`px-2 py-1 rounded-md text-xs inline-flex items-center gap-1 ${authorLevel.color}`}>
-                          {authorLevel.icon}
-                          <span>{authorLevel.title}</span>
-                      </div>
-                    </TableCell>
-                      <TableCell>{format(author.createdAt, "dd/MM/yyyy")}</TableCell>
-                    <TableCell>
-                        <div className="flex items-center">
-                          <Eye className="h-4 w-4 mr-1 text-muted-foreground" />
-                          {formatViews(author.totalViews)}
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatCurrency(author.totalEarnings)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-1">
-                      <TooltipProvider>
-                        <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                          </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Xem chi tiết</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                                <p>Chỉnh sửa</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <DollarSign className="h-4 w-4" />
-                                </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                                <p>Thanh toán</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Xóa</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                      </div>
-                    </TableCell>
+          <div className="rounded-md border">
+            <div className="min-h-[500px]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Thông tin tác giả</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Cấp độ</TableHead>
+                    <TableHead>Giới tính</TableHead>
+                    <TableHead>Trạng thái</TableHead>
+                    <TableHead>Ngày tham gia</TableHead>
+                    <TableHead className="text-right">Thao tác</TableHead>
                   </TableRow>
-                  )
-                })}
-            </TableBody>
-          </Table>
-      </div>
+                </TableHeader>
+                <TableBody>
+                  {paginatedAuthors.length > 0 ? (
+                    paginatedAuthors.map((author) => {
+                      const authorLevel = getAuthorLevel(author.experiencePoints || 0);
+                      return (
+                        <TableRow key={author._id}>
+                          <TableCell className="font-medium">{author._id.substring(0, 8)}...</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="h-8 w-8 rounded-full bg-gray-100 overflow-hidden">
+                                      {author.avatar ? (
+                                        <img src={author.avatar} alt={author.username} className="h-full w-full object-cover" />
+                                      ) : (
+                                        <div className="h-full w-full flex items-center justify-center text-xs font-medium">
+                                          {author.username.charAt(0).toUpperCase()}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Tác giả: {author.username}</p>
+                                    {author.bio && <p className="text-xs mt-1">{author.bio}</p>}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              <span>{author.fullname || author.username}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{author.email}</TableCell>
+                          <TableCell>
+                            <div className={`px-2 py-1 rounded-md text-xs inline-flex items-center gap-1 ${authorLevel.color}`}>
+                              {authorLevel.icon}
+                              <span>{authorLevel.title}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{getGenderBadge(author.gender)}</TableCell>
+                          <TableCell>{getStatusBadge(author.status || 'active')}</TableCell>
+                          <TableCell>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-help">{format(author.createdAt, "dd/MM/yyyy")}</span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{format(author.createdAt, "dd/MM/yyyy HH:mm:ss")}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end space-x-1">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Xem chi tiết</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Chỉnh sửa</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                      <DollarSign className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Thanh toán</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-10">
+                        <div className="flex flex-col items-center justify-center text-muted-foreground">
+                          <Shield className="h-10 w-10 mb-2" />
+                          <p>Không tìm thấy tác giả nào</p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
 
-          <div className="mt-4 flex justify-end">
-            <Pagination currentPage={currentPage} totalPages={5} onPageChange={setCurrentPage} />
+          <div className="border-t">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
           </div>
         </TabsContent>
 

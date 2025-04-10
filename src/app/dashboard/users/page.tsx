@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -62,20 +62,25 @@ interface UserLevel {
   icon: string
 }
 
-// Định nghĩa interface cho người dùng
+// Định nghĩa interface cho người dùng, phù hợp với mô hình đã cung cấp
 interface User {
-  id: number
-  name: string
+  _id: string
+  fullname: string
+  username: string
+  password: string
   email: string
+  gender: "Male" | "Female"
+  role: "reader" | "author"
   avatar: string
-  username: string // Thêm trường tài khoản
-  password: string // Thêm trường mật khẩu
-  exp: number
-  level: UserLevel
-  totalDeposit: number // Tổng số tiền đã nạp
-  totalCoins: number // Tổng số xu hiện có
   createdAt: Date
-  status: "active" | "inactive" | "banned"
+  updatedAt: Date
+  
+  // Các trường bổ sung cho UI
+  level?: UserLevel
+  exp?: number
+  totalDeposit?: number
+  totalCoins?: number
+  status?: "active" | "inactive" | "banned"
 }
 
 // Dữ liệu mẫu cho cấp độ người dùng
@@ -152,122 +157,6 @@ const getUserLevel = (exp: number): UserLevel => {
   return userLevels[0];
 };
 
-// Dữ liệu mẫu cho người dùng
-const initialUsers: User[] = [
-  {
-    id: 101,
-    name: "Nguyễn Văn A",
-    email: "nguyenvana@example.com",
-    avatar: "https://ui-avatars.com/api/?name=Nguyen+Van+A",
-    username: "nguyenvana",
-    password: "password123",
-    exp: 2500,
-    level: getUserLevel(2500),
-    totalDeposit: 500000,
-    totalCoins: 350,
-    createdAt: new Date("2024-01-15"),
-    status: "active"
-  },
-  {
-    id: 102,
-    name: "Trần Thị B",
-    email: "tranthib@example.com",
-    avatar: "https://ui-avatars.com/api/?name=Tran+Thi+B",
-    username: "tranthib",
-    password: "password123",
-    exp: 150,
-    level: getUserLevel(150),
-    totalDeposit: 1000000,
-    totalCoins: 800,
-    createdAt: new Date("2024-01-20"),
-    status: "active"
-  },
-  {
-    id: 103,
-    name: "Lê Văn C",
-    email: "levanc@example.com",
-    avatar: "https://ui-avatars.com/api/?name=Le+Van+C",
-    username: "levanc",
-    password: "password123",
-    exp: 50,
-    level: getUserLevel(50),
-    totalDeposit: 200000,
-    totalCoins: 150,
-    createdAt: new Date("2024-02-01"),
-    status: "inactive"
-  },
-  {
-    id: 104,
-    name: "Phạm Thị D",
-    email: "phamthid@example.com",
-    avatar: "https://ui-avatars.com/api/?name=Pham+Thi+D",
-    username: "phamthid",
-    password: "password123",
-    exp: 800,
-    level: getUserLevel(800),
-    totalDeposit: 2000000,
-    totalCoins: 1500,
-    createdAt: new Date("2024-02-10"),
-    status: "active"
-  },
-  {
-    id: 105,
-    name: "Hoàng Văn E",
-    email: "hoangvane@example.com",
-    avatar: "https://ui-avatars.com/api/?name=Hoang+Van+E",
-    username: "hoangvane",
-    password: "password123",
-    exp: 3500,
-    level: getUserLevel(3500),
-    totalDeposit: 100000,
-    totalCoins: 80,
-    createdAt: new Date("2024-02-15"),
-    status: "banned"
-  },
-  {
-    id: 106,
-    name: "Ngô Thị F",
-    email: "ngothif@example.com",
-    avatar: "/avatars/06.png",
-    username: "ngothif",
-    password: "password123",
-    exp: 400,
-    level: getUserLevel(400),
-    totalDeposit: 0,
-    totalCoins: 0,
-    createdAt: new Date("2023-06-18"),
-    status: "active"
-  },
-  {
-    id: 107,
-    name: "Đỗ Văn G",
-    email: "dovang@example.com",
-    avatar: "/avatars/07.png",
-    username: "dovang",
-    password: "password123",
-    exp: 1200,
-    level: getUserLevel(1200),
-    totalDeposit: 0,
-    totalCoins: 0,
-    createdAt: new Date("2023-07-22"),
-    status: "active"
-  },
-  {
-    id: 108,
-    name: "Vũ Thị H",
-    email: "vuthih@example.com",
-    avatar: "/avatars/08.png",
-    username: "vuthih",
-    password: "password123",
-    exp: 0,
-    level: getUserLevel(0),
-    totalDeposit: 0,
-    totalCoins: 0,
-    createdAt: new Date("2023-08-30"),
-    status: "inactive"
-  }
-];
-
 // Hàm lấy biểu tượng dựa trên tên
 const getIconComponent = (iconName: string) => {
   switch (iconName) {
@@ -328,6 +217,25 @@ const getStatusBadge = (status: string) => {
   )
 }
 
+// Hàm hiển thị giới tính
+const getGenderBadge = (gender: string) => {
+  const genderClasses: Record<string, string> = {
+    Male: "bg-blue-100 text-blue-800 border-blue-200",
+    Female: "bg-pink-100 text-pink-800 border-pink-200"
+  }
+
+  const genderLabels: Record<string, string> = {
+    Male: "Nam",
+    Female: "Nữ"
+  }
+
+  return (
+    <Badge variant="outline" className={genderClasses[gender]}>
+      {genderLabels[gender]}
+    </Badge>
+  )
+}
+
 // Hàm định dạng số tiền
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('vi-VN', {
@@ -338,10 +246,12 @@ const formatCurrency = (amount: number): string => {
 };
 
 export default function UsersPage() {
-  const [users, setUsers] = useState(initialUsers)
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [levelFilter, setLevelFilter] = useState<string>("all")
+  const [genderFilter, setGenderFilter] = useState<string>("all")
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [currentPage, setCurrentPage] = useState(1)
   const ITEMS_PER_PAGE = 10
@@ -351,31 +261,75 @@ export default function UsersPage() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [editFormData, setEditFormData] = useState({
-    name: "",
+    fullname: "",
     email: "",
     username: "",
     password: "",
-    exp: 0,
-    totalDeposit: 0,
-    totalCoins: 0,
+    gender: "Male" as "Male" | "Female",
     status: "active" as "active" | "inactive" | "banned"
   })
   const [avatarPreview, setAvatarPreview] = useState<string>("")
   const [showPassword, setShowPassword] = useState(false)
   const [showAddPassword, setShowAddPassword] = useState(false)
 
+  // Fetch users từ API khi component mount
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        console.log('Đang tải dữ liệu người dùng từ API...');
+        
+        const response = await fetch('/api/users');
+        console.log('API Response status:', response.status);
+        
+        if (!response.ok) {
+          const errorData = await response.text();
+          console.error('API Error:', errorData);
+          throw new Error(`Không thể tải danh sách người dùng: ${response.status} - ${errorData}`);
+        }
+        
+        const data = await response.json();
+        console.log('Nhận được dữ liệu:', data.length, 'người dùng');
+        
+        if (!Array.isArray(data)) {
+          console.error('Dữ liệu không phải là mảng:', data);
+          throw new Error('Dữ liệu không đúng định dạng');
+        }
+        
+        // Mặc định status là active và cấp độ là 1
+        const usersWithDefaults = data.map((user: User) => ({
+          ...user,
+          status: user.status || "active",
+          level: getUserLevel(user.exp || 0),
+          exp: user.exp || 0,
+          totalDeposit: user.totalDeposit || 0,
+          totalCoins: user.totalCoins || 0,
+          createdAt: new Date(user.createdAt),
+          updatedAt: new Date(user.updatedAt)
+        }));
+        
+        setUsers(usersWithDefaults);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải dữ liệu');
+        console.error('Error fetching users:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
   // Hàm xử lý khi click vào nút chỉnh sửa thông tin
   const handleEditUser = (user: User) => {
     setEditingUser(user)
     setEditFormData({
-      name: user.name,
+      fullname: user.fullname,
       email: user.email,
       username: user.username,
       password: user.password,
-      exp: user.exp,
-      totalDeposit: user.totalDeposit,
-      totalCoins: user.totalCoins,
-      status: user.status
+      gender: user.gender,
+      status: user.status || "active"
     })
     setAvatarPreview(user.avatar)
     setShowPassword(false)
@@ -388,18 +342,16 @@ export default function UsersPage() {
     
     if (!editingUser) return
     
+    // Trong thực tế, bạn sẽ gọi API để cập nhật thông tin người dùng
     const updatedUsers = users.map(u => {
-      if (u.id === editingUser.id) {
+      if (u._id === editingUser._id) {
         return {
           ...u,
-          name: editFormData.name,
+          fullname: editFormData.fullname,
           email: editFormData.email,
           username: editFormData.username,
           password: editFormData.password,
-          exp: editFormData.exp,
-          level: getUserLevel(editFormData.exp),
-          totalDeposit: editFormData.totalDeposit,
-          totalCoins: editFormData.totalCoins,
+          gender: editFormData.gender,
           status: editFormData.status,
           avatar: avatarPreview // Cập nhật avatar mới
         }
@@ -417,9 +369,7 @@ export default function UsersPage() {
     
     setEditFormData(prev => ({
       ...prev,
-      [name]: name === 'exp' || name === 'totalDeposit' || name === 'totalCoins' 
-        ? parseInt(value) 
-        : value
+      [name]: value
     }))
   }
 
@@ -440,13 +390,11 @@ export default function UsersPage() {
   const handleAddUser = () => {
     setEditingUser(null)
     setEditFormData({
-      name: "",
+      fullname: "",
       email: "",
       username: "",
       password: "",
-      exp: 0,
-      totalDeposit: 0,
-      totalCoins: 0,
+      gender: "Male",
       status: "active"
     })
     setAvatarPreview("")
@@ -458,26 +406,24 @@ export default function UsersPage() {
   const handleAddFormSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Tạo ID mới
-    const newId = Math.max(...users.map(u => u.id)) + 1
+    // Tạo ID mới - dummy value, sẽ được thay thế bởi API
+    const newId = String(Date.now())
     
     // Tạo avatar mặc định nếu không có avatar mới
-    const userAvatar = avatarPreview || `https://ui-avatars.com/api/?name=${encodeURIComponent(editFormData.name)}`
+    const userAvatar = avatarPreview || `https://ui-avatars.com/api/?name=${encodeURIComponent(editFormData.fullname)}`
     
     // Tạo người dùng mới
     const newUser: User = {
-      id: newId,
-      name: editFormData.name,
+      _id: newId,
+      fullname: editFormData.fullname,
       email: editFormData.email,
       username: editFormData.username,
       password: editFormData.password,
+      gender: editFormData.gender,
+      role: "reader",
       avatar: userAvatar,
-      exp: editFormData.exp,
-      level: getUserLevel(editFormData.exp),
-      totalDeposit: editFormData.totalDeposit,
-      totalCoins: editFormData.totalCoins,
       createdAt: new Date(),
-      status: editFormData.status
+      updatedAt: new Date()
     }
     
     // Cập nhật danh sách người dùng
@@ -489,21 +435,22 @@ export default function UsersPage() {
   const filteredUsers = users.filter((user) => {
     // Lọc theo từ khóa tìm kiếm
     const matchesSearch = 
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase());
+      user.fullname.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.username.toLowerCase().includes(searchQuery.toLowerCase());
     
     // Lọc theo trạng thái
     const matchesStatus = statusFilter === "all" || user.status === statusFilter;
     
-    // Lọc theo cấp độ
-    const matchesLevel = levelFilter === "all" || user.level.level === parseInt(levelFilter);
+    // Lọc theo giới tính
+    const matchesGender = genderFilter === "all" || user.gender === genderFilter;
     
     // Lọc theo khoảng thời gian
     const matchesDateRange = !dateRange || !dateRange.from || !dateRange.to || 
       (user.createdAt >= dateRange.from && 
        user.createdAt <= new Date(dateRange.to.getTime() + 86400000));
     
-    return matchesSearch && matchesStatus && matchesLevel && matchesDateRange;
+    return matchesSearch && matchesStatus && matchesGender && matchesDateRange;
   });
 
   // Tính tổng số trang
@@ -535,10 +482,10 @@ export default function UsersPage() {
     ].join(",");
 
     const csvData = filteredUsers.map(user => [
-      user.id,
-      user.name,
+      user._id,
+      user.fullname,
       user.email,
-      user.level.level,
+      user.level?.name,
       user.totalDeposit,
       user.totalCoins,
       user.status,
@@ -557,6 +504,32 @@ export default function UsersPage() {
     link.click();
     document.body.removeChild(link);
   };
+
+  // Hiển thị loading state
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4">Đang tải dữ liệu người dùng...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Hiển thị error state
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center text-red-500">
+          <p className="text-xl">Lỗi: {error}</p>
+          <Button className="mt-4" onClick={() => window.location.reload()}>
+            Thử lại
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
@@ -587,7 +560,7 @@ export default function UsersPage() {
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-2xl font-medium">
-                      {editFormData.name.charAt(0)}
+                      {editFormData.fullname.charAt(0)}
                     </div>
                   )}
                 </div>
@@ -612,14 +585,14 @@ export default function UsersPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-id">ID</Label>
-                  <Input id="edit-id" value={editingUser.id} disabled />
+                  <Input id="edit-id" value={editingUser._id} disabled />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-name">Tên</Label>
+                  <Label htmlFor="edit-fullname">Họ tên</Label>
                   <Input 
-                    id="edit-name" 
-                    name="name" 
-                    value={editFormData.name} 
+                    id="edit-fullname" 
+                    name="fullname" 
+                    value={editFormData.fullname} 
                     onChange={handleEditFormChange} 
                     required 
                   />
@@ -682,79 +655,44 @@ export default function UsersPage() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-exp">Kinh nghiệm</Label>
-                  <Input 
-                    id="edit-exp" 
-                    name="exp" 
-                    type="number" 
-                    value={editFormData.exp} 
-                    onChange={handleEditFormChange} 
-                    required 
-                  />
+                  <Label htmlFor="edit-gender">Giới tính</Label>
+                  <Select 
+                    name="gender" 
+                    value={editFormData.gender} 
+                    onValueChange={(value) => setEditFormData(prev => ({
+                      ...prev, 
+                      gender: value as "Male" | "Female"
+                    }))}
+                  >
+                    <SelectTrigger id="edit-gender">
+                      <SelectValue placeholder="Chọn giới tính" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Nam</SelectItem>
+                      <SelectItem value="Female">Nữ</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-level">Cấp độ</Label>
-                  <Input 
-                    id="edit-level" 
-                    value={getUserLevel(editFormData.exp).name} 
-                    disabled 
-                  />
+                  <Label htmlFor="edit-status">Trạng thái</Label>
+                  <Select 
+                    name="status" 
+                    value={editFormData.status} 
+                    onValueChange={(value) => setEditFormData(prev => ({
+                      ...prev, 
+                      status: value as "active" | "inactive" | "banned"
+                    }))}
+                  >
+                    <SelectTrigger id="edit-status">
+                      <SelectValue placeholder="Chọn trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Hoạt động</SelectItem>
+                      <SelectItem value="inactive">Không hoạt động</SelectItem>
+                      <SelectItem value="banned">Bị cấm</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-deposit">Tổng tiền nạp</Label>
-                  <Input 
-                    id="edit-deposit" 
-                    name="totalDeposit" 
-                    type="number" 
-                    value={editFormData.totalDeposit} 
-                    onChange={handleEditFormChange} 
-                    required 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-coins">Số xu</Label>
-                  <Input 
-                    id="edit-coins" 
-                    name="totalCoins" 
-                    type="number" 
-                    value={editFormData.totalCoins} 
-                    onChange={handleEditFormChange} 
-                    required 
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="edit-status">Trạng thái</Label>
-                <Select 
-                  name="status" 
-                  value={editFormData.status} 
-                  onValueChange={(value) => setEditFormData(prev => ({
-                    ...prev, 
-                    status: value as "active" | "inactive" | "banned"
-                  }))}
-                >
-                  <SelectTrigger id="edit-status">
-                    <SelectValue placeholder="Chọn trạng thái" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Hoạt động</SelectItem>
-                    <SelectItem value="inactive">Không hoạt động</SelectItem>
-                    <SelectItem value="banned">Bị cấm</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="edit-created">Ngày tạo</Label>
-                <Input 
-                  id="edit-created" 
-                  value={format(editingUser.createdAt, "dd/MM/yyyy HH:mm:ss")} 
-                  disabled 
-                />
               </div>
               
               <div className="flex justify-end gap-2 pt-4">
@@ -797,7 +735,7 @@ export default function UsersPage() {
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-2xl font-medium">
-                      {editFormData.name ? editFormData.name.charAt(0) : "?"}
+                      {editFormData.fullname ? editFormData.fullname.charAt(0) : "?"}
                     </div>
                   )}
                 </div>
@@ -820,11 +758,11 @@ export default function UsersPage() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="add-name">Tên</Label>
+                <Label htmlFor="add-fullname">Họ tên</Label>
                 <Input 
-                  id="add-name" 
-                  name="name" 
-                  value={editFormData.name} 
+                  id="add-fullname" 
+                  name="fullname" 
+                  value={editFormData.fullname} 
                   onChange={handleEditFormChange} 
                   required 
                 />
@@ -886,70 +824,44 @@ export default function UsersPage() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="add-exp">Kinh nghiệm</Label>
-                  <Input 
-                    id="add-exp" 
-                    name="exp" 
-                    type="number" 
-                    value={editFormData.exp} 
-                    onChange={handleEditFormChange} 
-                    required 
-                  />
+                  <Label htmlFor="add-gender">Giới tính</Label>
+                  <Select 
+                    name="gender" 
+                    value={editFormData.gender} 
+                    onValueChange={(value) => setEditFormData(prev => ({
+                      ...prev, 
+                      gender: value as "Male" | "Female"
+                    }))}
+                  >
+                    <SelectTrigger id="add-gender">
+                      <SelectValue placeholder="Chọn giới tính" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Nam</SelectItem>
+                      <SelectItem value="Female">Nữ</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="add-level">Cấp độ</Label>
-                  <Input 
-                    id="add-level" 
-                    value={getUserLevel(editFormData.exp).name} 
-                    disabled 
-                  />
+                  <Label htmlFor="add-status">Trạng thái</Label>
+                  <Select 
+                    name="status" 
+                    value={editFormData.status} 
+                    onValueChange={(value) => setEditFormData(prev => ({
+                      ...prev, 
+                      status: value as "active" | "inactive" | "banned"
+                    }))}
+                  >
+                    <SelectTrigger id="add-status">
+                      <SelectValue placeholder="Chọn trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Hoạt động</SelectItem>
+                      <SelectItem value="inactive">Không hoạt động</SelectItem>
+                      <SelectItem value="banned">Bị cấm</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="add-deposit">Tổng tiền nạp</Label>
-                  <Input 
-                    id="add-deposit" 
-                    name="totalDeposit" 
-                    type="number" 
-                    value={editFormData.totalDeposit} 
-                    onChange={handleEditFormChange} 
-                    required 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="add-coins">Số xu</Label>
-                  <Input 
-                    id="add-coins" 
-                    name="totalCoins" 
-                    type="number" 
-                    value={editFormData.totalCoins} 
-                    onChange={handleEditFormChange} 
-                    required 
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="add-status">Trạng thái</Label>
-                <Select 
-                  name="status" 
-                  value={editFormData.status} 
-                  onValueChange={(value) => setEditFormData(prev => ({
-                    ...prev, 
-                    status: value as "active" | "inactive" | "banned"
-                  }))}
-                >
-                  <SelectTrigger id="add-status">
-                    <SelectValue placeholder="Chọn trạng thái" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Hoạt động</SelectItem>
-                    <SelectItem value="inactive">Không hoạt động</SelectItem>
-                    <SelectItem value="banned">Bị cấm</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
               
               <div className="flex justify-end gap-2 pt-4">
@@ -966,7 +878,7 @@ export default function UsersPage() {
       )}
 
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">Quản lý người dùng</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Quản lý độc giả</h2>
         <div className="flex gap-2">
           <Button 
             onClick={exportToCSV}
@@ -1046,20 +958,16 @@ export default function UsersPage() {
             </SelectContent>
           </Select>
           <Select
-            value={levelFilter}
-            onValueChange={setLevelFilter}
+            value={genderFilter}
+            onValueChange={setGenderFilter}
           >
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Cấp độ" />
+              <SelectValue placeholder="Giới tính" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tất cả cấp độ</SelectItem>
-              <SelectItem value="1">Cấp 1</SelectItem>
-              <SelectItem value="2">Cấp 2</SelectItem>
-              <SelectItem value="3">Cấp 3</SelectItem>
-              <SelectItem value="4">Cấp 4</SelectItem>
-              <SelectItem value="5">Cấp 5</SelectItem>
-              <SelectItem value="6">Cấp 6</SelectItem>
+              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="Male">Nam</SelectItem>
+              <SelectItem value="Female">Nữ</SelectItem>
             </SelectContent>
           </Select>
           <DatePickerWithRange
@@ -1075,79 +983,81 @@ export default function UsersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>ID</TableHead>
-                <TableHead>Người dùng</TableHead>
+                <TableHead>Thông tin người dùng</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Cấp độ</TableHead>
-                <TableHead>Tổng nạp</TableHead>
-                <TableHead>Số xu</TableHead>
+                <TableHead>Tài khoản</TableHead>
+                <TableHead>Giới tính</TableHead>
                 <TableHead>Trạng thái</TableHead>
                 <TableHead>Ngày tạo</TableHead>
                 <TableHead className="text-right">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">#{user.id}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
+              {paginatedUsers.length > 0 ? (
+                paginatedUsers.map((user) => (
+                  <TableRow key={user._id}>
+                    <TableCell className="font-medium">{user._id.substring(0, 8)}...</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="h-8 w-8 rounded-full bg-gray-100 overflow-hidden">
+                                {user.avatar ? (
+                                  <img src={user.avatar} alt={user.fullname} className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="h-full w-full flex items-center justify-center text-xs font-medium">
+                                    {user.fullname.charAt(0)}
+                                  </div>
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Tên: {user.fullname}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <span>{user.fullname}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>{user.username}</TableCell>
+                    <TableCell>{getGenderBadge(user.gender)}</TableCell>
+                    <TableCell>{getStatusBadge(user.status || 'active')}</TableCell>
+                    <TableCell>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <div className="h-8 w-8 rounded-full bg-gray-100 overflow-hidden">
-                              {user.avatar ? (
-                                <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
-                              ) : (
-                                <div className="h-full w-full flex items-center justify-center text-xs font-medium">
-                                  {user.name.charAt(0)}
-                                </div>
-                              )}
-                            </div>
+                            <span className="cursor-help">{format(user.createdAt, "dd/MM/yyyy")}</span>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Tên: {user.name}</p>
+                            <p>{format(user.createdAt, "dd/MM/yyyy HH:mm:ss")}</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                      <span>{user.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{getLevelBadge(user.level)}</TableCell>
-                  <TableCell className="font-medium">{formatCurrency(user.totalDeposit)}</TableCell>
-                  <TableCell>{user.totalCoins} xu</TableCell>
-                  <TableCell>{getStatusBadge(user.status)}</TableCell>
-                  <TableCell>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="cursor-help">{format(user.createdAt, "dd/MM/yyyy")}</span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{format(user.createdAt, "dd/MM/yyyy HH:mm:ss")}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-8 w-8 p-0"
-                      onClick={() => handleEditUser(user)}
-                    >
-                      <span className="sr-only">Chỉnh sửa</span>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {paginatedUsers.length < ITEMS_PER_PAGE && (
-                Array(ITEMS_PER_PAGE - paginatedUsers.length).fill(0).map((_, index) => (
-                  <TableRow key={`empty-${index}`}>
-                    <TableCell colSpan={9}>&nbsp;</TableCell>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0"
+                        onClick={() => handleEditUser(user)}
+                      >
+                        <span className="sr-only">Chỉnh sửa</span>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-10">
+                    <div className="flex flex-col items-center justify-center text-muted-foreground">
+                      <User className="h-10 w-10 mb-2" />
+                      <p>Không tìm thấy người dùng nào</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
               )}
             </TableBody>
           </Table>

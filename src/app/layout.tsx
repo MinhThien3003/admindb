@@ -4,12 +4,13 @@ import { Inter } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from 'sonner';
 import "react-day-picker/dist/style.css"
+import { AuthProvider } from '@/hooks/use-auth';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Novel Saga Dashboard',
-  description: 'Management dashboard for novels, authors, and transactions',
+  title: 'Admin Dashboard',
+  description: 'Admin dashboard for managing content',
 };
 
 export default function RootLayout({
@@ -21,15 +22,17 @@ export default function RootLayout({
     <html lang='en' suppressHydrationWarning>
       <head />
       <body className={inter.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-          <Toaster />
-        </ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+            <Toaster />
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,106 +18,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Search, Trash2, Plus, Edit2 } from "lucide-react"
+import { Search, Trash2, Plus, Edit2, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Pagination } from "@/components/ui/pagination"
 
 // Định nghĩa interface cho Category
 interface Category {
-  id: number
-  name: string
+  _id: string
+  titleCategory: string
   description: string
-  novelCount: number
+  novelCount?: number // Thêm field này để tương thích với UI hiện tại 
   createdAt: string
+  updatedAt: string
 }
 
-// Dữ liệu mẫu
-const initialCategories: Category[] = [
-  {
-    id: 1,
-    name: "Fantasy",
-    description: "Thể loại kỳ ảo, thường có các yếu tố ma thuật, sinh vật huyền bí.",
-    novelCount: 42,
-    createdAt: "2022-01-15"
-  },
-  {
-    id: 2,
-    name: "Adventure",
-    description: "Thể loại phiêu lưu, mạo hiểm, khám phá thế giới.",
-    novelCount: 38,
-    createdAt: "2022-01-20"
-  },
-  {
-    id: 3,
-    name: "Romance",
-    description: "Thể loại lãng mạn, tình cảm giữa các nhân vật.",
-    novelCount: 65,
-    createdAt: "2022-01-25"
-  },
-  {
-    id: 4,
-    name: "Action",
-    description: "Thể loại hành động, chiến đấu, võ thuật.",
-    novelCount: 47,
-    createdAt: "2022-02-01"
-  },
-  {
-    id: 5,
-    name: "Comedy",
-    description: "Thể loại hài hước, vui nhộn.",
-    novelCount: 29,
-    createdAt: "2022-02-05"
-  },
-  {
-    id: 6,
-    name: "Drama",
-    description: "Thể loại kịch tính, cảm xúc.",
-    novelCount: 33,
-    createdAt: "2022-02-10"
-  },
-  {
-    id: 7,
-    name: "Horror",
-    description: "Thể loại kinh dị, rùng rợn.",
-    novelCount: 18,
-    createdAt: "2022-02-15"
-  },
-  {
-    id: 8,
-    name: "Mystery",
-    description: "Thể loại bí ẩn, trinh thám.",
-    novelCount: 24,
-    createdAt: "2022-02-20"
-  },
-  {
-    id: 9,
-    name: "Sci-fi",
-    description: "Thể loại khoa học viễn tưởng.",
-    novelCount: 31,
-    createdAt: "2022-02-25"
-  },
-  {
-    id: 10,
-    name: "Slice of Life",
-    description: "Thể loại đời thường, cuộc sống hàng ngày.",
-    novelCount: 27,
-    createdAt: "2022-03-01"
-  },
-  {
-    id: 11,
-    name: "Historical",
-    description: "Thể loại lịch sử, dựa trên các sự kiện có thật.",
-    novelCount: 19,
-    createdAt: "2022-03-05"
-  },
-  {
-    id: 12,
-    name: "Martial Arts",
-    description: "Thể loại võ thuật, tu luyện.",
-    novelCount: 36,
-    createdAt: "2022-03-10"
-  }
-]
+// Dữ liệu mẫu - sẽ được thay thế bằng dữ liệu từ API
+const initialCategories: Category[] = []
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>(initialCategories)
@@ -126,15 +42,90 @@ export default function CategoriesPage() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [newCategory, setNewCategory] = useState<Partial<Category>>({
-    name: "",
+    titleCategory: "",
     description: ""
   })
   const { toast } = useToast()
   const ITEMS_PER_PAGE = 10
 
+  // Fetch categories từ API
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        console.log('Đang tải dữ liệu thể loại từ API...');
+        
+        const response = await fetch('/api/categories');
+        console.log('API Response status:', response.status);
+        
+        if (!response.ok) {
+          const errorData = await response.text();
+          console.error('API Error:', errorData);
+          throw new Error(`Không thể tải danh sách thể loại: ${response.status} - ${errorData}`);
+        }
+        
+        const data = await response.json();
+        console.log('Dữ liệu nhận được:', typeof data, Array.isArray(data) ? 'là mảng' : 'không phải mảng');
+        
+        // Kiểm tra kĩ hơn cấu trúc dữ liệu
+        if (!data) {
+          throw new Error('Dữ liệu trống');
+        }
+        
+        // Nếu response là một object error
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        
+        // Đảm bảo data là một mảng để xử lý
+        let categoriesArray = data;
+        
+        // Nếu không phải mảng mà là object có trường data là mảng
+        if (!Array.isArray(data) && data.data && Array.isArray(data.data)) {
+          categoriesArray = data.data;
+        }
+        
+        if (!Array.isArray(categoriesArray)) {
+          console.error('Dữ liệu không phải là mảng:', data);
+          throw new Error('Dữ liệu không đúng định dạng');
+        }
+        
+        console.log('Số lượng thể loại:', categoriesArray.length);
+        
+        // Thêm số lượng truyện (novelCount) nếu không có từ API
+        const formattedCategories = categoriesArray.map((category: Partial<Category>) => ({
+          ...category,
+          _id: category._id || String(Date.now()),
+          titleCategory: category.titleCategory || '',
+          description: category.description || '',
+          novelCount: category.novelCount || 0,
+          createdAt: new Date(category.createdAt || '').toISOString().split('T')[0],
+          updatedAt: category.updatedAt || new Date().toISOString()
+        })) as Category[];
+        
+        setCategories(formattedCategories);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải dữ liệu');
+        console.error('Error fetching categories:', err);
+        toast({
+          title: "Lỗi",
+          description: err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải dữ liệu',
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, [toast]);
+
   const filteredCategories = categories.filter((category) =>
-    category.name.toLowerCase().includes(searchQuery.toLowerCase())
+    category.titleCategory.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const totalPages = Math.ceil(filteredCategories.length / ITEMS_PER_PAGE)
@@ -143,19 +134,19 @@ export default function CategoriesPage() {
     currentPage * ITEMS_PER_PAGE
   )
 
-  const handleDelete = (id: number) => {
+  const handleDelete = (id: string) => {
     // Kiểm tra xem thể loại có truyện không
-    const category = categories.find(cat => cat.id === id)
-    if (category && category.novelCount > 0) {
+    const category = categories.find(cat => cat._id === id)
+    if (category && category.novelCount && category.novelCount > 0) {
       toast({
         title: "Không thể xóa",
-        description: `Thể loại "${category.name}" đang có ${category.novelCount} truyện. Vui lòng xóa hoặc chuyển truyện sang thể loại khác trước.`,
+        description: `Thể loại "${category.titleCategory}" đang có ${category.novelCount} truyện. Vui lòng xóa hoặc chuyển truyện sang thể loại khác trước.`,
         variant: "destructive"
       })
       return
     }
 
-    setCategories(categories.filter((category) => category.id !== id))
+    setCategories(categories.filter((category) => category._id !== id))
     toast({
       title: "Đã xóa thể loại",
       description: "Thể loại đã được xóa thành công."
@@ -165,14 +156,14 @@ export default function CategoriesPage() {
   const handleEdit = (category: Category) => {
     setSelectedCategory(category)
     setNewCategory({
-      name: category.name,
+      titleCategory: category.titleCategory,
       description: category.description
     })
     setIsEditDialogOpen(true)
   }
 
   const handleAddSubmit = () => {
-    if (!newCategory.name) {
+    if (!newCategory.titleCategory) {
       toast({
         title: "Lỗi",
         description: "Tên thể loại không được để trống.",
@@ -182,7 +173,7 @@ export default function CategoriesPage() {
     }
 
     // Kiểm tra trùng tên
-    if (categories.some(cat => cat.name.toLowerCase() === newCategory.name?.toLowerCase())) {
+    if (categories.some(cat => cat.titleCategory.toLowerCase() === newCategory.titleCategory?.toLowerCase())) {
       toast({
         title: "Lỗi",
         description: "Tên thể loại đã tồn tại.",
@@ -192,15 +183,16 @@ export default function CategoriesPage() {
     }
 
     const newCategoryItem: Category = {
-      id: categories.length > 0 ? Math.max(...categories.map(c => c.id)) + 1 : 1,
-      name: newCategory.name,
+      _id: String(Date.now()),
+      titleCategory: newCategory.titleCategory,
       description: newCategory.description || "",
       novelCount: 0,
-      createdAt: new Date().toISOString().split('T')[0]
+      createdAt: new Date().toISOString().split('T')[0],
+      updatedAt: new Date().toISOString()
     }
 
     setCategories([...categories, newCategoryItem])
-    setNewCategory({ name: "", description: "" })
+    setNewCategory({ titleCategory: "", description: "" })
     setIsAddDialogOpen(false)
     toast({
       title: "Đã thêm thể loại",
@@ -210,7 +202,7 @@ export default function CategoriesPage() {
 
   const handleEditSubmit = () => {
     if (!selectedCategory) return
-    if (!newCategory.name) {
+    if (!newCategory.titleCategory) {
       toast({
         title: "Lỗi",
         description: "Tên thể loại không được để trống.",
@@ -221,8 +213,8 @@ export default function CategoriesPage() {
 
     // Kiểm tra trùng tên (trừ chính nó)
     if (categories.some(cat => 
-      cat.id !== selectedCategory.id && 
-      cat.name.toLowerCase() === newCategory.name?.toLowerCase()
+      cat._id !== selectedCategory._id && 
+      cat.titleCategory.toLowerCase() === newCategory.titleCategory?.toLowerCase()
     )) {
       toast({
         title: "Lỗi",
@@ -233,21 +225,48 @@ export default function CategoriesPage() {
     }
 
     setCategories(categories.map(category => 
-      category.id === selectedCategory.id 
+      category._id === selectedCategory._id 
         ? { 
             ...category, 
-            name: newCategory.name || category.name, 
-            description: newCategory.description || category.description 
+            titleCategory: newCategory.titleCategory || category.titleCategory, 
+            description: newCategory.description || category.description,
+            updatedAt: new Date().toISOString()
           } 
         : category
     ))
     setSelectedCategory(null)
-    setNewCategory({ name: "", description: "" })
+    setNewCategory({ titleCategory: "", description: "" })
     setIsEditDialogOpen(false)
     toast({
       title: "Đã cập nhật thể loại",
       description: "Thể loại đã được cập nhật thành công."
     })
+  }
+
+  // Hiển thị loading state
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin mx-auto text-gray-500" />
+          <p className="mt-4">Đang tải dữ liệu thể loại...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Hiển thị error state
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center text-red-500">
+          <p className="text-xl">Lỗi: {error}</p>
+          <Button className="mt-4" onClick={() => window.location.reload()}>
+            Thử lại
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -270,8 +289,8 @@ export default function CategoriesPage() {
                 <label htmlFor="name" className="text-sm font-medium">Tên thể loại</label>
                 <Input
                   id="name"
-                  value={newCategory.name || ""}
-                  onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+                  value={newCategory.titleCategory || ""}
+                  onChange={(e) => setNewCategory({ ...newCategory, titleCategory: e.target.value })}
                   placeholder="Nhập tên thể loại"
                 />
               </div>
@@ -318,34 +337,44 @@ export default function CategoriesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedCategories.map((category) => (
-                <TableRow key={category.id}>
-                  <TableCell>{category.id}</TableCell>
-                  <TableCell className="font-medium">{category.name}</TableCell>
-                  <TableCell>{category.description}</TableCell>
-                  <TableCell>{category.novelCount}</TableCell>
-                  <TableCell>{category.createdAt}</TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEdit(category)}
-                      className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(category.id)}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+              {paginatedCategories.length > 0 ? (
+                paginatedCategories.map((category) => (
+                  <TableRow key={category._id}>
+                    <TableCell>{category._id.substring(0, 8)}...</TableCell>
+                    <TableCell className="font-medium">{category.titleCategory}</TableCell>
+                    <TableCell>{category.description}</TableCell>
+                    <TableCell>{category.novelCount || 0}</TableCell>
+                    <TableCell>{category.createdAt}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEdit(category)}
+                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(category._id)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-10">
+                    <div className="flex flex-col items-center justify-center text-muted-foreground">
+                      <p>Không tìm thấy thể loại nào</p>
+                    </div>
                   </TableCell>
                 </TableRow>
-              ))}
-              {paginatedCategories.length < ITEMS_PER_PAGE && (
+              )}
+              {paginatedCategories.length > 0 && paginatedCategories.length < ITEMS_PER_PAGE && (
                 Array(ITEMS_PER_PAGE - paginatedCategories.length).fill(0).map((_, index) => (
                   <TableRow key={`empty-${index}`}>
                     <TableCell colSpan={6}>&nbsp;</TableCell>
@@ -376,8 +405,8 @@ export default function CategoriesPage() {
               <label htmlFor="edit-name" className="text-sm font-medium">Tên thể loại</label>
               <Input
                 id="edit-name"
-                value={newCategory.name || ""}
-                onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+                value={newCategory.titleCategory || ""}
+                onChange={(e) => setNewCategory({ ...newCategory, titleCategory: e.target.value })}
                 placeholder="Nhập tên thể loại"
               />
             </div>

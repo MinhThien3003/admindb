@@ -1,5 +1,4 @@
 "use client";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -7,46 +6,46 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { toast } from "sonner";
 import Image from "next/image";
+import { useAuth } from "@/hooks/use-auth";
 
 const formSchema = z.object({
-    email: z.string().email({
-        message: "Nhập đúng địa chỉ email!",
+    username: z.string().min(1, {
+        message: "Vui lòng nhập tên đăng nhập",
     }),
-    password: z.string().max(6, {
-        message:"Nhập tối đa 6 ký tự.",
+    password: z.string().min(1, {
+        message: "Vui lòng nhập mật khẩu.",
     }),
 })
 
 export default function LoginPage() {
-    const router = useRouter()
-    const [isLoading, setIsLoading] = useState(false)
+    const router = useRouter();
+    const { login, isLoading } = useAuth();
+    
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            email: "",
+            username: "",
             password: "",
         },
     })
 
     async function onSubmit(values: z.infer<typeof formSchema>){
-        try{
-            setIsLoading(true)
-            console.log(values) // Thêm log để sử dụng values
-            toast.success("Đăng nhập thành công!")
-            router.push("/dashboard")
-        } catch (error: unknown) {
-            toast.error("Thông tin đăng nhập không hợp lệ!")
-            console.error(error)
-        } finally {
-            setIsLoading(false)
+        try {
+            console.log("Đăng nhập với:", values);
+            
+            // Sử dụng hook useAuth để đăng nhập
+            const success = await login(values.username, values.password);
+            
+            if (success) {
+                console.log("Bắt đầu chuyển hướng đến /dashboard");
+                router.push("/dashboard");
+                console.log("Đã gọi router.push('/dashboard')");
+            }
+        } catch (error) {
+            console.error("Lỗi đăng nhập:", error);
         }
     }
-
-    // Thêm log để kiểm tra đường dẫn
-    console.log("Image path N:", "/images/login/char N.png")
-    console.log("Image path S:", "/images/login/char S.png")
 
     return (
         <div className="h-screen flex items-center justify-center bg-slate-600 relative overflow-hidden">
@@ -98,12 +97,12 @@ export default function LoginPage() {
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormField
                             control={form.control}
-                            name="email"
+                            name="username"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Tài khoản</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="Nhập tài khoản" {...field} />
+                                        <Input placeholder="Nhập tên đăng nhập" {...field} />
                                     </FormControl>
                                     <FormMessage/>
                                 </FormItem>

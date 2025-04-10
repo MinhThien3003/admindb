@@ -7,11 +7,32 @@ import { RecentSales } from "@/components/dashboard/recent-sales"
 import { Button } from "@/components/ui/button"
 import { DownloadIcon, Users } from "lucide-react"
 import { DatePickerWithRange } from "@/components/ui/date-range-picker"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { DateRange } from "react-day-picker"
+import { useAuth } from '@/hooks/use-auth'
+import { useRouter } from 'next/navigation'
 
 export default function DashboardPage() {
+    const { user, isAuthenticated, isLoading } = useAuth()
+    const router = useRouter()
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
+
+    useEffect(() => {
+        if (!isLoading && !isAuthenticated) {
+            router.push('/login-page')
+        }
+        if (user) {
+            console.log(`Đã đăng nhập với: ${user.username} (${user.email})`);
+        }
+    }, [isAuthenticated, isLoading, router, user])
+
+    if (isLoading) {
+        return (
+            <div className="flex justify-center items-center min-h-screen">
+                <p className="text-xl">Đang tải...</p>
+            </div>
+        )
+    }
 
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">
