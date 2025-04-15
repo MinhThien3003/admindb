@@ -25,7 +25,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -36,7 +35,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { toast } from "@/components/ui/use-toast"
 
 // Định nghĩa các keyframes animation
 const styles = `
@@ -106,8 +104,7 @@ interface Chapter {
 
 export default function NovelDetailsPage({ params }: { params: { novelId: string } }) {
   const router = useRouter()
-  const unwrappedParams = React.use(params); // Unwrap params
-  const novelId = unwrappedParams.novelId;
+  const novelId = params.novelId;
   const [novel, setNovel] = useState<Novel | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -249,7 +246,7 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
   }
   
   // Hàm cập nhật trường của chương đang chỉnh sửa
-  const handleUpdateChapterField = (field: string, value: any) => {
+  const handleUpdateChapterField = (field: string, value: string | number | boolean) => {
     if (editingChapter) {
       setEditingChapter({
         ...editingChapter,
@@ -481,18 +478,17 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
                       <div className="flex flex-wrap gap-2 mt-2">
                         {novel.idCategories && Array.isArray(novel.idCategories) && novel.idCategories.length > 0 ? (
                           novel.idCategories.map((category, index) => {
-                            console.log('Category item:', category);
                             // Kiểm tra cấu trúc dữ liệu thể loại
-                            const categoryName = typeof category === 'object' 
-                              ? (category.name || category.titleCategory || (category as any).title || (category as any).categoryName) 
-                              : category;
+                            const categoryName = typeof category === 'object' && category !== null
+                              ? (category.name || '') 
+                              : String(category);
                               
                             return (
                               <div 
-                                key={typeof category === 'object' ? (category._id || index) : index}
+                                key={typeof category === 'object' && category !== null ? (category._id || index) : index}
                                 className="px-3 py-1 rounded-full bg-gray-100 text-gray-800"
                               >
-                                {categoryName || 'Chưa có tên'}
+                                {categoryName}
                               </div>
                             );
                           })

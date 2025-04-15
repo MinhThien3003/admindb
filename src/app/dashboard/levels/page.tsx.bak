@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuthorLevels } from "@/hooks/use-author-levels"
-import { useReaderLevels, ReaderLevel } from "@/hooks/use-reader-levels"
+import { useReaderLevels, ReaderLevel, ReaderLevelInput } from "@/hooks/use-reader-levels"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { UserLevelForm } from "@/components/dashboard/user-level-form"
 import { AuthorLevelForm } from "@/components/dashboard/author-level-form"
+// import { ReaderLevelForm } from "@/components/dashboard/reader-level-form"
 import {
   Select,
   SelectContent,
@@ -33,19 +34,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-import { AuthorLevel as ApiAuthorLevel, AuthorLevelInput } from "@/hooks/use-author-levels"
-import { UserLevelInput } from "@/components/dashboard/user-level-form"
 
-// Interface cho cấp độ người dùng (độc giả) trong UI
-interface UIUserLevel {
-  id: string;
-  name: string;
-  level: number;
-  requiredExp: number;
-  color: string;
-  icon: string;
-  benefits?: string[];
-}
+
+import { AuthorLevel as ApiAuthorLevel, AuthorLevelInput } from "@/hooks/use-author-levels"
+// Đã import ReaderLevel và ReaderLevelInput ở trên
 
 // Interface cho cấp độ tác giả trong UI (mở rộng từ API AuthorLevel)
 interface UIAuthorLevel extends ApiAuthorLevel {
@@ -56,11 +48,13 @@ interface UIAuthorLevel extends ApiAuthorLevel {
   benefits?: string[]
 }
 
-// Type cho dữ liệu đầu vào của form chỉnh sửa tác giả
-interface AuthorLevelFormInput {
-  title: string;
-  level: string | number;
-  requiredExp: string | number;
+// Interface cho cấp độ độc giả trong UI (mở rộng từ API ReaderLevel)
+interface UIReaderLevel extends ReaderLevel {
+  // Thêm các trường UI bổ sung
+  displayName?: string
+  displayColor?: string
+  displayIcon?: string
+  benefits?: string[]
 }
 
 // Hàm chuyển đổi từ API AuthorLevel sang UI AuthorLevel
@@ -162,18 +156,20 @@ const getLevelBadge = (level: number, color: string, icon: string) => {
 }
 
 export default function LevelsPage() {
-  // State cho cấp độ người dùng (độc giả)
+  // State cho cấp độ người dùng
+  
+  // State cho cấp độ người dùng (API)
   const [selectedUserLevel, setSelectedUserLevel] = useState<UIUserLevel | null>(null)
   
   // State cho cấp độ tác giả
   const [selectedAuthorLevel, setSelectedAuthorLevel] = useState<UIAuthorLevel | null>(null)
   
   // State cho phân trang
-  const [readerCurrentPage, setReaderCurrentPage] = useState(1)
+  const [userCurrentPage, setUserCurrentPage] = useState(1)
   const [authorCurrentPage, setAuthorCurrentPage] = useState(1)
   
   // State cho số lượng hiển thị trên mỗi trang
-  const [readerItemsPerPage, setReaderItemsPerPage] = useState(5)
+  const [userItemsPerPage, setUserItemsPerPage] = useState(5)
   const [authorItemsPerPage, setAuthorItemsPerPage] = useState(5)
   
   // Sử dụng custom hook useAuthorLevels
@@ -186,7 +182,7 @@ export default function LevelsPage() {
     deleteAuthorLevel
   } = useAuthorLevels()
   
-  // Sử dụng custom hook useReaderLevels
+  // Sử dụng custom hook useUserLevels
   const {
     readerLevels: apiReaderLevels,
     isLoading: isLoadingReaderLevels,
@@ -200,7 +196,7 @@ export default function LevelsPage() {
   const authorLevels: UIAuthorLevel[] = apiAuthorLevels.map(mapApiToUiAuthorLevel)
   
   // Hàm chuyển đổi từ API ReaderLevel sang UI ReaderLevel
-  const mapApiToUiUserLevel = (apiLevel: ReaderLevel): UIUserLevel => {
+  const mapApiToUiReaderLevel = (apiLevel: ReaderLevel): UIReaderLevel => {
     // Xác định màu và icon dựa trên cấp độ
     let color = "blue";
     if (apiLevel.level <= 1) color = "gray";
@@ -209,6 +205,27 @@ export default function LevelsPage() {
     else if (apiLevel.level === 4) color = "purple";
     else if (apiLevel.level === 5) color = "orange";
     else if (apiLevel.level >= 6) color = "red";
+    
+    // Tạo danh sách đặc quyền dựa trên cấp độ
+    const benefits: string[] = [];
+    if (apiLevel.level >= 1) {
+      benefits.push("Đọc truyện miễn phí", "Bình luận");
+    }
+    if (apiLevel.level >= 2) {
+      benefits.push("Đánh giá truyện");
+    }
+    if (apiLevel.level >= 3) {
+      benefits.push(`Giảm 5% phí đọc truyện premium`);
+    }
+    if (apiLevel.level >= 4) {
+      benefits.push(`Giảm 10% phí đọc truyện premium`, "Huy hiệu độc giả");
+    }
+    if (apiLevel.level >= 5) {
+      benefits.push(`Giảm 15% phí đọc truyện premium`, "Truy cập sớm nội dung mới");
+    }
+    if (apiLevel.level >= 6) {
+      benefits.push(`Giảm 20% phí đọc truyện premium`, "Quà tặng hàng tháng");
+    }
     
     // Xác định icon dựa trên cấp độ
     let icon = "user";
@@ -225,50 +242,25 @@ export default function LevelsPage() {
       requiredExp: apiLevel.requiredExp,
       color,
       icon,
-      benefits: getReaderBenefits(apiLevel.level)
+      benefits
     };
   }
   
-  // Hàm tạo danh sách đặc quyền cho độc giả dựa trên cấp độ
-  const getReaderBenefits = (level: number): string[] => {
-    const benefits: string[] = [];
-    if (level >= 1) {
-      benefits.push("Đọc truyện miễn phí", "Bình luận");
-    }
-    if (level >= 2) {
-      benefits.push("Đánh giá truyện");
-    }
-    if (level >= 3) {
-      benefits.push(`Giảm 5% phí đọc truyện premium`);
-    }
-    if (level >= 4) {
-      benefits.push(`Giảm 10% phí đọc truyện premium`, "Huy hiệu độc giả");
-    }
-    if (level >= 5) {
-      benefits.push(`Giảm 15% phí đọc truyện premium`, "Truy cập sớm nội dung mới");
-    }
-    if (level >= 6) {
-      benefits.push(`Giảm 20% phí đọc truyện premium`, "Quà tặng hàng tháng");
-    }
-    return benefits;
-  };
-  
-  // Chuyển đổi cấp độ độc giả từ API
-  const userLevels: UIUserLevel[] = apiReaderLevels ? apiReaderLevels.map(mapApiToUiUserLevel) : []
+  const userLevels: UIUserLevel[] = apiUserLevels ? apiUserLevels.map(mapApiToUiUserLevel) : []
 
   // Gọi API khi component được mount
   useEffect(() => {
     fetchAuthorLevels();
-    fetchReaderLevels();
-  }, [fetchAuthorLevels, fetchReaderLevels]);
+    fetchUserLevels();
+  }, [fetchAuthorLevels, fetchUserLevels]);
 
-  // Tính toán tổng số trang cho độc giả
-  const readerTotalPages = Math.ceil(userLevels.length / readerItemsPerPage)
+  // Tính toán tổng số trang cho người dùng
+  const userTotalPages = Math.ceil(userLevels.length / userItemsPerPage)
   
-  // Lấy cấp độ độc giả cho trang hiện tại
-  const currentReaderLevels = userLevels.slice(
-    (readerCurrentPage - 1) * readerItemsPerPage,
-    readerCurrentPage * readerItemsPerPage
+  // Lấy cấp độ người dùng cho trang hiện tại
+  const currentUserLevels = userLevels.slice(
+    (userCurrentPage - 1) * userItemsPerPage,
+    userCurrentPage * userItemsPerPage
   )
 
   // Tính toán tổng số trang cho tác giả
@@ -280,13 +272,9 @@ export default function LevelsPage() {
     authorCurrentPage * authorItemsPerPage
   )
 
-  // Xử lý xóa cấp độ người dùng (độc giả)
-  const handleDeleteUserLevel = (id: string) => {
-    // Hiển thị hộp thoại xác nhận trước khi xóa
-    if (window.confirm('Bạn có chắc chắn muốn xóa cấp độ độc giả này?')) {
-      // Gọi API để xóa cấp độ độc giả
-      deleteReaderLevel(id);
-    }
+  // Xử lý xóa cấp độ người dùng
+  const handleDeleteUserLevel = (id: number) => {
+    setUserLevels(userLevels.filter(level => level.id !== id))
   }
 
   // Xử lý xóa cấp độ tác giả
@@ -298,6 +286,8 @@ export default function LevelsPage() {
     }
   }
 
+
+
   // Xử lý chỉnh sửa cấp độ tác giả
   const handleEditAuthorLevel = (level: UIAuthorLevel) => {
     setSelectedAuthorLevel(level)
@@ -308,34 +298,45 @@ export default function LevelsPage() {
     setSelectedUserLevel(level)
   }
 
-  // Xử lý lưu cấp độ người dùng (độc giả)
+  // Xử lý lưu cấp độ người dùng
   const handleSaveUserLevel = (formData: UserLevelInput) => {
     if (selectedUserLevel) {
       // Cập nhật cấp độ hiện có
-      updateReaderLevel(selectedUserLevel.id, formData);
+      updateUserLevel(selectedUserLevel.id, formData);
     } else {
       // Thêm cấp độ mới
-      addReaderLevel(formData);
+      addUserLevel(formData);
     }
-    setSelectedUserLevel(null);
+    setSelectedUserLevel(null)
   }
 
   // Xử lý lưu cấp độ tác giả
-  const handleSaveAuthorLevel = (formData: AuthorLevelInput) => {
+  const handleSaveAuthorLevel = (formData: {
+    title: string;
+    level: string | number;
+    requiredExp: string | number;
+  }) => {
+    // Chuyển đổi dữ liệu sang định dạng API
+    const apiData: AuthorLevelInput = {
+      level: parseInt(formData.level),
+      requiredExp: parseInt(formData.requiredExp),
+      title: formData.title
+    };
+    
     if (selectedAuthorLevel && selectedAuthorLevel._id) {
       // Cập nhật cấp độ hiện có thông qua custom hook
-      updateAuthorLevel(selectedAuthorLevel._id, formData);
+      updateAuthorLevel(selectedAuthorLevel._id, apiData);
     } else {
       // Thêm cấp độ mới thông qua custom hook
-      addAuthorLevel(formData);
+      addAuthorLevel(apiData);
     }
     
     setSelectedAuthorLevel(null);
   }
 
   // Xử lý chuyển trang cho người dùng
-  const goToReaderPage = (page: number) => {
-    setReaderCurrentPage(Math.max(1, Math.min(page, readerTotalPages)))
+  const goToUserPage = (page: number) => {
+    setUserCurrentPage(Math.max(1, Math.min(page, userTotalPages)))
   }
 
   // Xử lý chuyển trang cho tác giả
@@ -344,9 +345,9 @@ export default function LevelsPage() {
   }
 
   // Xử lý thay đổi số lượng hiển thị trên mỗi trang cho người dùng
-  const handleReaderItemsPerPageChange = (value: string) => {
-    setReaderItemsPerPage(parseInt(value))
-    setReaderCurrentPage(1) // Reset về trang đầu tiên khi thay đổi số lượng hiển thị
+  const handleUserItemsPerPageChange = (value: string) => {
+    setUserItemsPerPage(parseInt(value))
+    setUserCurrentPage(1) // Reset về trang đầu tiên khi thay đổi số lượng hiển thị
   }
 
   // Xử lý thay đổi số lượng hiển thị trên mỗi trang cho tác giả
@@ -411,19 +412,7 @@ export default function LevelsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {isLoadingReaderLevels ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-4">
-                          Đang tải dữ liệu cấp độ người dùng...
-                        </TableCell>
-                      </TableRow>
-                    ) : currentReaderLevels.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-4">
-                          Không có dữ liệu cấp độ người dùng
-                        </TableCell>
-                      </TableRow>
-                    ) : currentReaderLevels.map((level) => (
+                    {currentUserLevels.map((level) => (
                       <TableRow key={level.id}>
                         <TableCell>{level.id}</TableCell>
                         <TableCell className="font-medium">
@@ -487,11 +476,11 @@ export default function LevelsPage() {
                   <div className="flex items-center space-x-2">
                     <p className="text-sm font-medium">Hiển thị</p>
                     <Select
-                      value={readerItemsPerPage.toString()}
-                      onValueChange={handleReaderItemsPerPageChange}
+                      value={userItemsPerPage.toString()}
+                      onValueChange={handleUserItemsPerPageChange}
                     >
                       <SelectTrigger className="h-8 w-[70px]">
-                        <SelectValue placeholder={readerItemsPerPage.toString()} />
+                        <SelectValue placeholder={userItemsPerPage.toString()} />
                       </SelectTrigger>
                       <SelectContent side="top">
                         {[5, 10, 20, 50].map((value) => (
@@ -506,15 +495,15 @@ export default function LevelsPage() {
                   
                   <div className="flex items-center space-x-2">
                     <p className="text-sm font-medium">
-                      Trang {readerCurrentPage} / {readerTotalPages}
+                      Trang {userCurrentPage} / {userTotalPages}
                     </p>
                     <div className="flex items-center space-x-1">
                       <Button
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => goToReaderPage(1)}
-                        disabled={readerCurrentPage === 1}
+                        onClick={() => goToUserPage(1)}
+                        disabled={userCurrentPage === 1}
                       >
                         <ChevronsLeft className="h-4 w-4" />
                       </Button>
@@ -522,8 +511,8 @@ export default function LevelsPage() {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => goToReaderPage(readerCurrentPage - 1)}
-                        disabled={readerCurrentPage === 1}
+                        onClick={() => goToUserPage(userCurrentPage - 1)}
+                        disabled={userCurrentPage === 1}
                       >
                         <ChevronLeft className="h-4 w-4" />
                       </Button>
@@ -531,8 +520,8 @@ export default function LevelsPage() {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => goToReaderPage(readerCurrentPage + 1)}
-                        disabled={readerCurrentPage === readerTotalPages}
+                        onClick={() => goToUserPage(userCurrentPage + 1)}
+                        disabled={userCurrentPage === userTotalPages}
                       >
                         <ChevronRight className="h-4 w-4" />
                       </Button>
@@ -540,8 +529,8 @@ export default function LevelsPage() {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => goToReaderPage(readerTotalPages)}
-                        disabled={readerCurrentPage === readerTotalPages}
+                        onClick={() => goToUserPage(userTotalPages)}
+                        disabled={userCurrentPage === userTotalPages}
                       >
                         <ChevronsRight className="h-4 w-4" />
                       </Button>

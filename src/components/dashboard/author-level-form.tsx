@@ -4,46 +4,59 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
 import { X, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
-// Định nghĩa interface cho cấp độ tác giả
-interface AuthorLevel {
-  id: number
-  name: string
-  level: number
-  requiredNovel: number
-  requiredRating: number
-  benefits: string[]
-  color: string
-  icon: string
+// Import interface từ hook
+import { AuthorLevel as ApiAuthorLevel } from "@/hooks/use-author-levels"
+
+// Định nghĩa interface cho cấp độ tác giả trong UI
+interface UIAuthorLevel extends Partial<ApiAuthorLevel> {
+  // Thêm các trường UI bổ sung
+  displayName?: string
+  displayColor?: string
+  displayIcon?: string
+  benefits?: string[]
+  name?: string
+  requiredNovel?: number
+  requiredRating?: number
+  color?: string
+  icon?: string
 }
 
 interface AuthorLevelFormProps {
-  initialData: AuthorLevel | null
-  onSubmit: (data: AuthorLevel) => void
+  initialData: UIAuthorLevel | null
+  onSubmit: (data: {
+    title: string;
+    level: string | number;
+    requiredExp: string | number;
+  }) => void
 }
 
 export function AuthorLevelForm({ initialData, onSubmit }: AuthorLevelFormProps) {
   const { toast } = useToast()
-  const [formData, setFormData] = useState<AuthorLevel>({
-    id: initialData?.id || 0,
-    name: initialData?.name || "",
+  const [formData, setFormData] = useState({
+    title: initialData?.title || initialData?.displayName || initialData?.name || "",
     level: initialData?.level || 1,
-    requiredNovel: initialData?.requiredNovel || 0,
-    requiredRating: initialData?.requiredRating || 0,
+    requiredExp: initialData?.requiredExp || initialData?.requiredNovel || 0,
     benefits: initialData?.benefits || [],
-    color: initialData?.color || "gray",
-    icon: initialData?.icon || "edit"
+    color: initialData?.displayColor || initialData?.color || "gray",
+    icon: initialData?.displayIcon || initialData?.icon || "edit"
   })
   const [newBenefit, setNewBenefit] = useState("")
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData)
+      setFormData({
+        title: initialData.title || initialData.displayName || initialData.name || "",
+        level: initialData.level || 1,
+        requiredExp: initialData.requiredExp || initialData.requiredNovel || 0,
+        benefits: initialData.benefits || [],
+        color: initialData.displayColor || initialData.color || "gray",
+        icon: initialData.displayIcon || initialData.icon || "edit"
+      })
     }
   }, [initialData])
 
@@ -57,10 +70,7 @@ export function AuthorLevelForm({ initialData, onSubmit }: AuthorLevelFormProps)
     setFormData({ ...formData, [name]: parseInt(value) || 0 })
   }
 
-  const handleRatingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData({ ...formData, [name]: parseFloat(value) || 0 })
-  }
+  // Xóa hàm handleRatingChange vì không còn sử dụng
 
   const handleSelectChange = (name: string, value: string) => {
     setFormData({ ...formData, [name]: value })
@@ -85,7 +95,7 @@ export function AuthorLevelForm({ initialData, onSubmit }: AuthorLevelFormProps)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.name) {
+    if (!formData.title) {
       toast({
         title: "Lỗi",
         description: "Vui lòng nhập tên cấp độ",
@@ -94,7 +104,12 @@ export function AuthorLevelForm({ initialData, onSubmit }: AuthorLevelFormProps)
       return
     }
 
-    onSubmit(formData)
+    onSubmit({
+      title: formData.title,
+      level: formData.level,
+      requiredExp: formData.requiredExp
+    })
+    
     toast({
       title: "Thành công",
       description: `Đã ${initialData ? "cập nhật" : "thêm"} cấp độ tác giả`,
@@ -105,11 +120,11 @@ export function AuthorLevelForm({ initialData, onSubmit }: AuthorLevelFormProps)
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="name">Tên cấp độ</Label>
+          <Label htmlFor="title">Tên cấp độ</Label>
           <Input
-            id="name"
-            name="name"
-            value={formData.name}
+            id="title"
+            name="title"
+            value={formData.title}
             onChange={handleChange}
             placeholder="Nhập tên cấp độ"
             required
@@ -132,29 +147,25 @@ export function AuthorLevelForm({ initialData, onSubmit }: AuthorLevelFormProps)
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="requiredNovel">Số truyện yêu cầu</Label>
+          <Label htmlFor="requiredExp">Kinh nghiệm yêu cầu</Label>
           <Input
-            id="requiredNovel"
-            name="requiredNovel"
+            id="requiredExp"
+            name="requiredExp"
             type="number"
             min="0"
-            value={formData.requiredNovel}
+            value={formData.requiredExp}
             onChange={handleNumberChange}
             required
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="requiredRating">Đánh giá trung bình yêu cầu</Label>
+          <Label htmlFor="level">Cấp độ hiển thị</Label>
           <Input
-            id="requiredRating"
-            name="requiredRating"
-            type="number"
-            min="0"
-            max="5"
-            step="0.1"
-            value={formData.requiredRating}
-            onChange={handleRatingChange}
-            required
+            id="displayLevel"
+            name="displayLevel"
+            type="text"
+            value={`Cấp ${formData.level}`}
+            disabled
           />
         </div>
       </div>

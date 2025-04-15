@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import axios from 'axios';
-import { config } from '@/lib/config';
+import React from 'react';
 
 // Định nghĩa interface cho thông tin người dùng dựa vào adminSchema
 interface User {
@@ -13,31 +13,10 @@ interface User {
   email: string;
   gender: "Male" | "Female";
   role: string;
+  avatarUrl?: string;
   createdAt?: string;
   updatedAt?: string;
 }
-
-// Dummy data cho người dùng phù hợp với adminSchema
-const DUMMY_USERS = [
-  {
-    id: '1',
-    username: 'admin',
-    email: 'admin@example.com',
-    gender: "Male" as const,
-    role: 'Admin',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '2',
-    username: 'user',
-    email: 'user@example.com',
-    gender: "Female" as const,
-    role: 'Admin',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
 
 interface AuthContextType {
   user: User | null;
@@ -77,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Kiểm tra trong localStorage
         const savedUser = localStorage.getItem('auth_user');
         const savedToken = localStorage.getItem('auth_token');
-        
+       
         if (savedUser && savedToken) {
           setUser(JSON.parse(savedUser));
           setToken(savedToken);
@@ -85,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           // Cập nhật token cho các request API tiếp theo
           api.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
-        } else {
+       } else {
           setUser(null);
           setToken(null);
           setIsAuthenticated(false);

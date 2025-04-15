@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,11 +19,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Search, Trash2, Pencil, DollarSign, Eye, Trophy, Star, Award, Shield, Zap, Download, UserPlus, Coins } from "lucide-react"
+import { Search, Pencil, DollarSign, Eye, Trophy, Star, Award, Shield, Zap, Download } from "lucide-react"
 import { format } from "date-fns"
 import { Pagination } from "@/components/ui/pagination"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AuthorRequests, AuthorRequest } from "@/components/dashboard/author-requests"
 import { Badge } from "@/components/ui/badge"
@@ -161,7 +161,65 @@ const formatCurrency = (amount: number): string => {
 };
 
 // Dữ liệu mẫu về tác giả
-const initialAuthors: Author[] = [];
+const initialAuthors: Author[] = [
+  {
+    _id: "1",
+    username: "nguyenvana",
+    email: "nguyenvana@example.com",
+    fullname: "Nguyễn Văn A",
+    password: "hashedpassword",
+    gender: "Male",
+    role: "author",
+    avatar: "https://randomuser.me/api/portraits/men/1.jpg",
+    createdAt: new Date("2023-01-15"),
+    updatedAt: new Date("2023-06-20"),
+    status: "active",
+    level: 30,
+    experiencePoints: 15000,
+    bio: "Tác giả chuyên viết truyện ngắn và tiểu thuyết lịch sử",
+    totalViews: 25000,
+    totalTransactions: 120,
+    totalEarnings: 5000000
+  },
+  {
+    _id: "2",
+    username: "tranthib",
+    email: "tranthib@example.com",
+    fullname: "Trần Thị B",
+    password: "hashedpassword",
+    gender: "Female",
+    role: "author",
+    avatar: "https://randomuser.me/api/portraits/women/2.jpg",
+    createdAt: new Date("2023-02-10"),
+    updatedAt: new Date("2023-07-15"),
+    status: "active",
+    level: 40,
+    experiencePoints: 32000,
+    bio: "Tác giả chuyên viết truyện ngộ ngại và lãng mạn",
+    totalViews: 45000,
+    totalTransactions: 200,
+    totalEarnings: 8500000
+  },
+  {
+    _id: "3",
+    username: "levanc",
+    email: "levanc@example.com",
+    fullname: "Lê Văn C",
+    password: "hashedpassword",
+    gender: "Male",
+    role: "author",
+    avatar: "https://randomuser.me/api/portraits/men/3.jpg",
+    createdAt: new Date("2023-03-05"),
+    updatedAt: new Date("2023-08-10"),
+    status: "inactive",
+    level: 20,
+    experiencePoints: 8000,
+    bio: "Tác giả chuyên viết truyện kinh dị và giả tưởng",
+    totalViews: 12000,
+    totalTransactions: 50,
+    totalEarnings: 2000000
+  }
+];
 
 // Dữ liệu mẫu về yêu cầu trở thành tác giả
 const initialAuthorRequests: AuthorRequest[] = [];
@@ -207,10 +265,11 @@ const getGenderBadge = (gender: string) => {
 };
 
 export default function AuthorsPage() {
+  const router = useRouter()
   const [authors, setAuthors] = useState<Author[]>(initialAuthors)
   const [filteredAuthors, setFilteredAuthors] = useState<Author[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [levelFilter, setLevelFilter] = useState<string>("all")
+  // Đã xóa state levelFilter
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [genderFilter, setGenderFilter] = useState<string>("all")
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
@@ -228,8 +287,8 @@ export default function AuthorsPage() {
         author.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (author.fullname?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
       
-      // Lọc theo cấp độ
-      const matchesLevel = levelFilter === "all" || author.level?.toString() === levelFilter;
+      // Đã xóa phần lọc theo cấp độ
+      const matchesLevel = true; // Luôn trả về true vì đã xóa filter cấp độ
       
       // Lọc theo trạng thái
       const matchesStatus = statusFilter === "all" || author.status === statusFilter;
@@ -246,7 +305,7 @@ export default function AuthorsPage() {
     });
     
     setFilteredAuthors(filtered);
-  }, [authors, searchQuery, levelFilter, statusFilter, genderFilter, dateRange]);
+  }, [authors, searchQuery, statusFilter, genderFilter, dateRange]);
 
   // Tính toán số trang
   const totalPages = Math.ceil(filteredAuthors.length / ITEMS_PER_PAGE);
@@ -504,22 +563,7 @@ export default function AuthorsPage() {
               />
             </div>
             <div className="flex flex-col md:flex-row gap-2">
-              <Select
-                value={levelFilter}
-                onValueChange={setLevelFilter}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Cấp độ" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả cấp độ</SelectItem>
-                  {authorLevels.map((level) => (
-                    <SelectItem key={level.level} value={level.level.toString()}>
-                      {level.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Đã xóa filter cấp độ */}
               <Select
                 value={statusFilter}
                 onValueChange={setStatusFilter}
@@ -562,7 +606,6 @@ export default function AuthorsPage() {
                     <TableHead>ID</TableHead>
                     <TableHead>Thông tin tác giả</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Cấp độ</TableHead>
                     <TableHead>Giới tính</TableHead>
                     <TableHead>Trạng thái</TableHead>
                     <TableHead>Ngày tham gia</TableHead>
@@ -572,7 +615,7 @@ export default function AuthorsPage() {
                 <TableBody>
                   {paginatedAuthors.length > 0 ? (
                     paginatedAuthors.map((author) => {
-                      const authorLevel = getAuthorLevel(author.experiencePoints || 0);
+                      // Đã xóa phần lấy cấp độ tác giả
                       return (
                         <TableRow key={author._id}>
                           <TableCell className="font-medium">{author._id.substring(0, 8)}...</TableCell>
@@ -601,12 +644,6 @@ export default function AuthorsPage() {
                             </div>
                           </TableCell>
                           <TableCell>{author.email}</TableCell>
-                          <TableCell>
-                            <div className={`px-2 py-1 rounded-md text-xs inline-flex items-center gap-1 ${authorLevel.color}`}>
-                              {authorLevel.icon}
-                              <span>{authorLevel.title}</span>
-                            </div>
-                          </TableCell>
                           <TableCell>{getGenderBadge(author.gender)}</TableCell>
                           <TableCell>{getStatusBadge(author.status || 'active')}</TableCell>
                           <TableCell>
@@ -626,7 +663,11 @@ export default function AuthorsPage() {
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      onClick={() => router.push(`/dashboard/authors/${author._id}`)}
+                                    >
                                       <Eye className="h-4 w-4" />
                                     </Button>
                                   </TooltipTrigger>

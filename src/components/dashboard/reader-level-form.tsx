@@ -4,51 +4,52 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
 import { X, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { ReaderLevel } from "@/hooks/use-reader-levels"
 
-// Định nghĩa interface cho cấp độ người dùng
-interface UserLevel {
-  id: string
-  name: string
-  level: number
-  requiredExp: number
-  benefits: string[]
-  color: string
-  icon: string
+// Định nghĩa interface cho cấp độ độc giả trong UI
+interface UIReaderLevel extends Partial<ReaderLevel> {
+  // Thêm các trường UI bổ sung
+  displayName?: string
+  displayColor?: string
+  displayIcon?: string
+  benefits?: string[]
 }
 
-// Định nghĩa interface cho dữ liệu đầu vào form
-export interface UserLevelInput {
-  title: string
-  level: number
-  requiredExp: number
+interface ReaderLevelFormProps {
+  initialData: UIReaderLevel | null
+  onSubmit: (data: {
+    title: string;
+    level: string | number;
+    requiredExp: string | number;
+  }) => void
 }
 
-interface UserLevelFormProps {
-  initialData: UserLevel | null
-  onSubmit: (data: UserLevelInput) => void
-}
-
-export function UserLevelForm({ initialData, onSubmit }: UserLevelFormProps) {
+export function ReaderLevelForm({ initialData, onSubmit }: ReaderLevelFormProps) {
   const { toast } = useToast()
-  const [formData, setFormData] = useState<UserLevel>({
-    id: initialData?.id || "",
-    name: initialData?.name || "",
+  const [formData, setFormData] = useState({
+    title: initialData?.title || initialData?.displayName || "",
     level: initialData?.level || 1,
     requiredExp: initialData?.requiredExp || 0,
     benefits: initialData?.benefits || [],
-    color: initialData?.color || "gray",
-    icon: initialData?.icon || "user"
+    color: initialData?.displayColor || "gray",
+    icon: initialData?.displayIcon || "star"
   })
   const [newBenefit, setNewBenefit] = useState("")
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData)
+      setFormData({
+        title: initialData.title || initialData.displayName || "",
+        level: initialData.level || 1,
+        requiredExp: initialData.requiredExp || 0,
+        benefits: initialData.benefits || [],
+        color: initialData.displayColor || "gray",
+        icon: initialData.displayIcon || "star"
+      })
     }
   }, [initialData])
 
@@ -61,6 +62,8 @@ export function UserLevelForm({ initialData, onSubmit }: UserLevelFormProps) {
     const { name, value } = e.target
     setFormData({ ...formData, [name]: parseInt(value) || 0 })
   }
+
+  // Xóa hàm handleRatingChange vì không còn sử dụng
 
   const handleSelectChange = (name: string, value: string) => {
     setFormData({ ...formData, [name]: value })
@@ -85,7 +88,7 @@ export function UserLevelForm({ initialData, onSubmit }: UserLevelFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.name) {
+    if (!formData.title) {
       toast({
         title: "Lỗi",
         description: "Vui lòng nhập tên cấp độ",
@@ -94,17 +97,15 @@ export function UserLevelForm({ initialData, onSubmit }: UserLevelFormProps) {
       return
     }
 
-    // Chuyển đổi dữ liệu sang định dạng API
-    const apiData: UserLevelInput = {
-      title: formData.name,
+    onSubmit({
+      title: formData.title,
       level: formData.level,
       requiredExp: formData.requiredExp
-    };
-
-    onSubmit(apiData)
+    })
+    
     toast({
       title: "Thành công",
-      description: `Đã ${initialData ? "cập nhật" : "thêm"} cấp độ người dùng`,
+      description: `Đã ${initialData ? "cập nhật" : "thêm"} cấp độ độc giả`,
     })
   }
 
@@ -112,11 +113,11 @@ export function UserLevelForm({ initialData, onSubmit }: UserLevelFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="name">Tên cấp độ</Label>
+          <Label htmlFor="title">Tên cấp độ</Label>
           <Input
-            id="name"
-            name="name"
-            value={formData.name}
+            id="title"
+            name="title"
+            value={formData.title}
             onChange={handleChange}
             placeholder="Nhập tên cấp độ"
             required
@@ -137,17 +138,29 @@ export function UserLevelForm({ initialData, onSubmit }: UserLevelFormProps) {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="requiredExp">Kinh nghiệm yêu cầu</Label>
-        <Input
-          id="requiredExp"
-          name="requiredExp"
-          type="number"
-          min="0"
-          value={formData.requiredExp}
-          onChange={handleNumberChange}
-          required
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="requiredExp">Kinh nghiệm yêu cầu</Label>
+          <Input
+            id="requiredExp"
+            name="requiredExp"
+            type="number"
+            min="0"
+            value={formData.requiredExp}
+            onChange={handleNumberChange}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="level">Cấp độ hiển thị</Label>
+          <Input
+            id="displayLevel"
+            name="displayLevel"
+            type="text"
+            value={`Cấp ${formData.level}`}
+            disabled
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -180,11 +193,11 @@ export function UserLevelForm({ initialData, onSubmit }: UserLevelFormProps) {
               <SelectValue placeholder="Chọn biểu tượng" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="user">Người dùng</SelectItem>
-              <SelectItem value="book-open">Sách mở</SelectItem>
-              <SelectItem value="bookmark">Đánh dấu</SelectItem>
+              <SelectItem value="star">Sao</SelectItem>
+              <SelectItem value="heart">Tim</SelectItem>
+              <SelectItem value="bookmark">Dấu trang</SelectItem>
+              <SelectItem value="book">Sách</SelectItem>
               <SelectItem value="award">Giải thưởng</SelectItem>
-              <SelectItem value="star">Ngôi sao</SelectItem>
               <SelectItem value="crown">Vương miện</SelectItem>
             </SelectContent>
           </Select>
@@ -234,4 +247,4 @@ export function UserLevelForm({ initialData, onSubmit }: UserLevelFormProps) {
       </div>
     </form>
   )
-} 
+}

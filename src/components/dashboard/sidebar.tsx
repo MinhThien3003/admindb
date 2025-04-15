@@ -15,7 +15,9 @@ import {
   Tag, 
   Award,
   Receipt,
-  CreditCard
+  CreditCard,
+  User,
+  UserCog
 } from "lucide-react";
 import { useState } from "react";
 
@@ -55,6 +57,12 @@ const routes = [
         icon: Users,
         href: '/dashboard/users',
         color: "text-sky-500"
+    },
+    {
+        label: 'Admins',
+        icon: UserCog,
+        href: '/dashboard/admins',
+        color: "text-purple-500"
     },
 ];
 
@@ -141,7 +149,19 @@ export function Sidebar({ className }: SidebarProps) {
                     </Link>
                 </div>
                 <div className="px-4 py-2">
-                    <div className="space-y-1">
+                    <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">
+                        Tài khoản
+                    </h2>
+                    <Link href="/dashboard/profile">
+                        <Button 
+                            variant={pathname === "/dashboard/profile" ? "secondary" : "ghost"}
+                            className="w-full justify-start"
+                        >
+                            <User className="mr-2 h-4 w-4 text-indigo-500" />
+                            <span>Thông tin cá nhân</span>
+                        </Button>
+                    </Link>
+                    <div className="space-y-1 mt-1">
                         <Button variant="ghost" className="w-full justify-start" onClick={() => router.push('/auth/login')}>
                             <LogOut className="mr-2 h-4 w-4" />
                             Logout

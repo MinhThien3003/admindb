@@ -18,6 +18,7 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  console.log('AuthProvider is being used');
   return (
     <html lang='en' suppressHydrationWarning>
       <head />
