@@ -21,6 +21,7 @@ import {
 import { Search, Trash2, Plus, Edit2, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Pagination } from "@/components/ui/pagination"
+import axios from "axios"
 
 // Định nghĩa interface cho Category
 interface Category {
@@ -50,6 +51,7 @@ export default function CategoriesPage() {
   })
   const { toast } = useToast()
   const ITEMS_PER_PAGE = 10
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Fetch categories từ API
   useEffect(() => {
@@ -162,7 +164,7 @@ export default function CategoriesPage() {
     setIsEditDialogOpen(true)
   }
 
-  const handleAddSubmit = () => {
+  const handleAddSubmit = async () => {
     if (!newCategory.titleCategory) {
       toast({
         title: "Lỗi",
@@ -181,26 +183,230 @@ export default function CategoriesPage() {
       })
       return
     }
-
-    const newCategoryItem: Category = {
-      _id: String(Date.now()),
-      titleCategory: newCategory.titleCategory,
-      description: newCategory.description || "",
-      novelCount: 0,
-      createdAt: new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString()
-    }
-
-    setCategories([...categories, newCategoryItem])
-    setNewCategory({ titleCategory: "", description: "" })
-    setIsAddDialogOpen(false)
+    
+    setIsSubmitting(true)
     toast({
-      title: "Đã thêm thể loại",
-      description: "Thể loại mới đã được thêm thành công."
+      title: "Đang xử lý",
+      description: "Đang thêm thể loại mới...",
     })
+    
+    try {
+      // Chuẩn bị dữ liệu thể loại mới
+      const categoryData = {
+        titleCategory: newCategory.titleCategory,
+        description: newCategory.description || ""
+      }
+      
+      console.log('Đang tạo thể loại mới');
+      console.log('Dữ liệu gửi đi:', categoryData);
+      
+      // Lấy token xác thực từ localStorage
+      let token;
+      try {
+        token = localStorage.getItem('admin_token');
+        if (!token) {
+          toast({
+            title: "Lỗi xác thực",
+            description: "Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.",
+            variant: "destructive"
+          })
+          console.error('Token không tìm thấy trong localStorage');
+          throw new Error("Phiên làm việc không hợp lệ");
+        }
+        
+        console.log('Đã tìm thấy token xác thực');
+      } catch (error) {
+        console.error('Lỗi khi truy cập localStorage:', error);
+        toast({
+          title: "Lỗi xác thực",
+          description: "Không thể xác thực phiên làm việc. Vui lòng tải lại trang.",
+          variant: "destructive"
+        })
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Thử gọi API trực tiếp từ backend trước
+      const directUrl = `http://localhost:5000/api/categories`;
+      console.log("Thử gọi API trực tiếp tới:", directUrl);
+      
+      try {
+        // Cấu hình request
+        const requestConfig = {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        };
+        
+        // Log chi tiết request
+        console.log("Request config:", requestConfig);
+        
+        // Thực hiện request trực tiếp bằng axios
+        const response = await axios.post(directUrl, categoryData, requestConfig);
+        
+        // Log kết quả từ API
+        console.log("API trực tiếp - Response status:", response.status);
+        console.log("API trực tiếp - Response data:", response.data);
+        
+        // Xử lý response thành công
+        toast({
+          title: "Thành công",
+          description: `Đã thêm thể loại "${categoryData.titleCategory}" thành công.`,
+          variant: "default",
+          className: "bg-green-50 border-green-200 text-green-800"
+        })
+        
+        // Cập nhật lại state với thông tin mới
+        const newCategoryItem: Category = {
+          _id: response.data._id || response.data.data?._id || String(Date.now()),
+          titleCategory: categoryData.titleCategory,
+          description: categoryData.description,
+          novelCount: 0,
+          createdAt: new Date().toISOString().split('T')[0],
+          updatedAt: new Date().toISOString()
+        }
+        
+        setCategories([...categories, newCategoryItem])
+        
+        // Đóng form và reset dữ liệu
+        setNewCategory({ titleCategory: "", description: "" })
+        setIsAddDialogOpen(false)
+        
+        return; // Kết thúc xử lý nếu thành công
+        
+      } catch (directError) {
+        console.error("Lỗi khi gọi API trực tiếp:", directError);
+        
+        // Thử với API Next.js proxy
+        try {
+          console.log("Thử gọi API qua Next.js proxy sau khi API trực tiếp thất bại");
+          
+          // Endpoint qua Next.js
+          const proxyUrl = `/api/categories`;
+          console.log("Gọi API qua Next.js proxy tại URL:", proxyUrl);
+          
+          const proxyResponse = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(categoryData)
+          });
+          
+          // Đọc response dưới dạng text trước
+          const responseText = await proxyResponse.text();
+          console.log(`Phản hồi từ proxy (status: ${proxyResponse.status}):`);
+          console.log(`Nội dung phản hồi:`, responseText.substring(0, 300) + (responseText.length > 300 ? '...' : ''));
+          
+          // Parse JSON nếu có thể
+          let responseData = null;
+          try {
+            if (responseText && responseText.trim() !== '') {
+              responseData = JSON.parse(responseText);
+              console.log('Dữ liệu đã parse từ proxy:', responseData);
+            } else {
+              console.warn('Response text từ proxy rỗng');
+              responseData = { success: proxyResponse.ok };
+            }
+          } catch (e) {
+            console.error('Không thể parse JSON từ proxy response:', e);
+            throw new Error(`Lỗi xử lý phản hồi từ proxy: ${e instanceof Error ? e.message : 'Lỗi không xác định'}`);
+          }
+          
+          // Xử lý response
+          if (!proxyResponse.ok) {
+            console.error('Lỗi từ proxy khi tạo thể loại:', responseData);
+            let errorMessage = 'Không thể tạo thể loại mới';
+            
+            if (responseData && responseData.message) {
+              errorMessage = responseData.message;
+            }
+            
+            throw new Error(errorMessage);
+          }
+          
+          // Xử lý thành công
+          console.log('Tạo thể loại thành công qua proxy:', responseData);
+          toast({
+            title: "Thành công",
+            description: `Đã thêm thể loại "${categoryData.titleCategory}" thành công (qua proxy).`,
+            variant: "default", 
+            className: "bg-green-50 border-green-200 text-green-800"
+          })
+          
+          // Cập nhật lại state với thông tin mới
+          const newCategoryItem: Category = {
+            _id: responseData._id || responseData.data?._id || String(Date.now()),
+            titleCategory: categoryData.titleCategory,
+            description: categoryData.description,
+            novelCount: 0,
+            createdAt: new Date().toISOString().split('T')[0],
+            updatedAt: new Date().toISOString()
+          }
+          
+          setCategories([...categories, newCategoryItem])
+          
+          // Đóng form và reset dữ liệu
+          setNewCategory({ titleCategory: "", description: "" })
+          setIsAddDialogOpen(false)
+          
+        } catch (proxyError) {
+          console.error("Lỗi khi gọi API qua proxy:", proxyError);
+          throw proxyError; // Ném lỗi để xử lý bên ngoài
+        }
+      }
+      
+    } catch (error) {
+      console.error('Lỗi khi tạo thể loại mới:', error);
+      
+      // Log chi tiết hơn về lỗi
+      if (error && typeof error === 'object' && 'response' in error) {
+        // Lỗi từ axios
+        interface AxiosErrorResponse {
+          response?: {
+            status?: number;
+            data?: {
+              message?: string;
+              error?: string;
+            };
+          };
+        }
+        
+        const axiosError = error as AxiosErrorResponse;
+        console.error("Lỗi response:", {
+          status: axiosError.response?.status,
+          data: axiosError.response?.data
+        });
+        
+        if (axiosError.response?.status === 409) {
+          toast({
+            title: "Lỗi",
+            description: "Tên thể loại đã tồn tại.",
+            variant: "destructive"
+          })
+        } else {
+          toast({
+            title: "Lỗi",
+            description: axiosError.response?.data?.message || "Không thể tạo thể loại mới.",
+            variant: "destructive"
+          })
+        }
+      } else {
+        // Lỗi khác
+        toast({
+          title: "Lỗi",
+          description: error instanceof Error ? error.message : "Đã xảy ra lỗi khi tạo thể loại mới.",
+          variant: "destructive"
+        })
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const handleEditSubmit = () => {
+  const handleEditSubmit = async () => {
     if (!selectedCategory) return
     if (!newCategory.titleCategory) {
       toast({
@@ -223,24 +429,230 @@ export default function CategoriesPage() {
       })
       return
     }
-
-    setCategories(categories.map(category => 
-      category._id === selectedCategory._id 
-        ? { 
-            ...category, 
-            titleCategory: newCategory.titleCategory || category.titleCategory, 
-            description: newCategory.description || category.description,
-            updatedAt: new Date().toISOString()
-          } 
-        : category
-    ))
-    setSelectedCategory(null)
-    setNewCategory({ titleCategory: "", description: "" })
-    setIsEditDialogOpen(false)
+    
+    setIsSubmitting(true)
     toast({
-      title: "Đã cập nhật thể loại",
-      description: "Thể loại đã được cập nhật thành công."
+      title: "Đang cập nhật",
+      description: "Đang lưu thông tin thể loại..."
     })
+    
+    try {
+      // Chuẩn bị dữ liệu cập nhật
+      const updateData = {
+        titleCategory: newCategory.titleCategory || selectedCategory.titleCategory,
+        description: newCategory.description || selectedCategory.description
+      }
+      
+      console.log('Đang cập nhật thể loại:', selectedCategory._id);
+      console.log('Dữ liệu gửi đi:', updateData);
+      
+      // Lấy token xác thực từ localStorage
+      let token;
+      try {
+        token = localStorage.getItem('admin_token');
+        if (!token) {
+          toast({
+            title: "Lỗi xác thực",
+            description: "Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.",
+            variant: "destructive"
+          })
+          console.error('Token không tìm thấy trong localStorage');
+          throw new Error("Phiên làm việc không hợp lệ");
+        }
+        
+        console.log('Đã tìm thấy token xác thực');
+      } catch (error) {
+        console.error('Lỗi khi truy cập localStorage:', error);
+        toast({
+          title: "Lỗi xác thực",
+          description: "Không thể xác thực phiên làm việc. Vui lòng tải lại trang.",
+          variant: "destructive"
+        })
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Thử gọi API trực tiếp từ backend trước
+      const categoryId = selectedCategory._id;
+      const directUrl = `http://localhost:5000/api/categories/${categoryId}`;
+      console.log("Thử gọi API trực tiếp tới:", directUrl);
+      
+      try {
+        // Cấu hình request
+        const requestConfig = {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        };
+        
+        // Log chi tiết request
+        console.log("Request config:", requestConfig);
+        
+        // Thực hiện request trực tiếp bằng axios
+        const response = await axios.put(directUrl, updateData, requestConfig);
+        
+        // Log kết quả từ API
+        console.log("API trực tiếp - Response status:", response.status);
+        console.log("API trực tiếp - Response data:", response.data);
+        
+        // Xử lý response thành công
+        toast({
+          title: "Thành công",
+          description: `Đã cập nhật thể loại "${newCategory.titleCategory}" thành công.`,
+          variant: "default",
+          className: "bg-green-50 border-green-200 text-green-800"
+        })
+        
+        // Cập nhật lại state với thông tin mới
+        setCategories(categories.map(category => 
+          category._id === selectedCategory._id 
+            ? { 
+                ...category, 
+                titleCategory: newCategory.titleCategory || category.titleCategory, 
+                description: newCategory.description || category.description,
+                updatedAt: new Date().toISOString()
+              } 
+            : category
+        ))
+        
+        // Đóng form
+        setSelectedCategory(null)
+        setNewCategory({ titleCategory: "", description: "" })
+        setIsEditDialogOpen(false)
+        
+        return; // Kết thúc xử lý nếu thành công
+        
+      } catch (directError) {
+        console.error("Lỗi khi gọi API trực tiếp:", directError);
+        
+        // Thử với API Next.js proxy
+        try {
+          console.log("Thử gọi API qua Next.js proxy sau khi API trực tiếp thất bại");
+          
+          // Endpoint qua Next.js
+          const proxyUrl = `/api/categories/${categoryId}`;
+          console.log("Gọi API qua Next.js proxy tại URL:", proxyUrl);
+          
+          const proxyResponse = await fetch(proxyUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(updateData)
+          });
+          
+          // Đọc response dưới dạng text trước
+          const responseText = await proxyResponse.text();
+          console.log(`Phản hồi từ proxy (status: ${proxyResponse.status}):`);
+          console.log(`Nội dung phản hồi:`, responseText.substring(0, 300) + (responseText.length > 300 ? '...' : ''));
+          
+          // Parse JSON nếu có thể
+          let responseData = null;
+          try {
+            if (responseText && responseText.trim() !== '') {
+              responseData = JSON.parse(responseText);
+              console.log('Dữ liệu đã parse từ proxy:', responseData);
+            } else {
+              console.warn('Response text từ proxy rỗng');
+              responseData = { success: proxyResponse.ok };
+            }
+          } catch (e) {
+            console.error('Không thể parse JSON từ proxy response:', e);
+            throw new Error(`Lỗi xử lý phản hồi từ proxy: ${e instanceof Error ? e.message : 'Lỗi không xác định'}`);
+          }
+          
+          // Xử lý response
+          if (!proxyResponse.ok) {
+            console.error('Lỗi từ proxy khi cập nhật thể loại:', responseData);
+            let errorMessage = 'Không thể cập nhật thể loại';
+            
+            if (responseData && responseData.message) {
+              errorMessage = responseData.message;
+            }
+            
+            throw new Error(errorMessage);
+          }
+          
+          // Xử lý thành công
+          console.log('Cập nhật thể loại thành công qua proxy:', responseData);
+          toast({
+            title: "Thành công",
+            description: `Đã cập nhật thể loại "${newCategory.titleCategory}" thành công (qua proxy).`,
+            variant: "default",
+            className: "bg-green-50 border-green-200 text-green-800"
+          })
+          
+          // Cập nhật lại state với thông tin mới
+          setCategories(categories.map(category => 
+            category._id === selectedCategory._id 
+              ? { 
+                  ...category, 
+                  titleCategory: newCategory.titleCategory || category.titleCategory, 
+                  description: newCategory.description || category.description,
+                  updatedAt: new Date().toISOString()
+                } 
+              : category
+          ))
+          
+          // Đóng form
+          setSelectedCategory(null)
+          setNewCategory({ titleCategory: "", description: "" })
+          setIsEditDialogOpen(false)
+          
+        } catch (proxyError) {
+          console.error("Lỗi khi gọi API qua proxy:", proxyError);
+          throw proxyError; // Ném lỗi để xử lý bên ngoài
+        }
+      }
+      
+    } catch (error) {
+      console.error('Lỗi khi cập nhật thể loại:', error);
+      
+      // Log chi tiết hơn về lỗi
+      if (error && typeof error === 'object' && 'response' in error) {
+        // Lỗi từ axios
+        interface AxiosErrorResponse {
+          response?: {
+            status?: number;
+            data?: {
+              message?: string;
+              error?: string;
+            };
+          };
+        }
+        
+        const axiosError = error as AxiosErrorResponse;
+        console.error("Lỗi response:", {
+          status: axiosError.response?.status,
+          data: axiosError.response?.data
+        });
+        
+        if (axiosError.response?.status === 409) {
+          toast({
+            title: "Lỗi",
+            description: "Tên thể loại đã tồn tại.",
+            variant: "destructive"
+          })
+        } else {
+          toast({
+            title: "Lỗi",
+            description: axiosError.response?.data?.message || "Không thể cập nhật thể loại.",
+            variant: "destructive"
+          })
+        }
+      } else {
+        // Lỗi khác
+        toast({
+          title: "Lỗi",
+          description: error instanceof Error ? error.message : "Đã xảy ra lỗi khi cập nhật thể loại.",
+          variant: "destructive"
+        })
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Hiển thị loading state
@@ -304,7 +716,19 @@ export default function CategoriesPage() {
                 />
               </div>
               <div className="flex justify-end">
-                <Button onClick={handleAddSubmit}>Thêm thể loại</Button>
+                <Button 
+                  onClick={handleAddSubmit} 
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Đang thêm...
+                    </>
+                  ) : (
+                    "Thêm thể loại"
+                  )}
+                </Button>
               </div>
             </div>
           </DialogContent>
@@ -420,7 +844,19 @@ export default function CategoriesPage() {
               />
             </div>
             <div className="flex justify-end">
-              <Button onClick={handleEditSubmit}>Lưu thay đổi</Button>
+              <Button 
+                onClick={handleEditSubmit} 
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Đang lưu...
+                  </>
+                ) : (
+                  "Lưu thay đổi"
+                )}
+              </Button>
             </div>
           </div>
         </DialogContent>

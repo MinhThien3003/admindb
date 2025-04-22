@@ -168,7 +168,7 @@ export async function DELETE(
       if (responseText) {
         try {
           responseData = JSON.parse(responseText);
-        } catch (/* eslint-disable-next-line @typescript-eslint/no-unused-vars */e) {
+        } catch {
           console.log('Phản hồi không phải định dạng JSON:', responseText);
           responseData = { message: 'Đã xóa chương thành công' };
         }

@@ -6,7 +6,7 @@ import config from '@/lib/config';
 export async function GET(request: NextRequest) {
   try {
     const token = request.cookies.get(config.auth.tokenCookieName)?.value;
-    
+
     console.log('[API] GET /api/admins - Token:', token ? `${token.substring(0, 10)}...` : 'không có');
 
     if (!token) {
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         },
       }
     );
-    
+
     console.log('[API] Kết quả từ backend:', response.status);
     console.log('[API] Dữ liệu từ backend:', response.data);
 

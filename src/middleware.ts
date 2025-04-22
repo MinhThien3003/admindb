@@ -3,18 +3,19 @@ import type { NextRequest } from 'next/server';
 import appConfig from '@/lib/config';
 
 export function middleware(request: NextRequest) {
-  // Thêm xử lý cookie token
+  // Lấy token từ cookie (nếu có)
   const token = request.cookies.get(appConfig.auth.tokenCookieName)?.value;
   
   const isLoggedIn = !!token;
   const isLoginPage = request.nextUrl.pathname.startsWith('/login-page');
-  const isDashboardPage = request.nextUrl.pathname.startsWith('/dashboard');
-  const isAdminAPI = request.nextUrl.pathname.startsWith('/api/admins');
-  
-  // Kiểm tra localStorage token (nếu có)
-  if (isDashboardPage && !isLoggedIn) {
-    // Cho phép truy cập dashboard dù không có cookie token
-    // vì chúng ta đang sử dụng localStorage thay vì cookie
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api');
+  const isProtectedApiRoute = 
+    (request.nextUrl.pathname.startsWith('/api/admins') && !request.nextUrl.pathname.includes('/login')) ||
+    request.nextUrl.pathname.startsWith('/api/auth/me');
+    
+  // Cho phép truy cập dashboard dù không có cookie token
+  // vì chúng ta đang sử dụng localStorage để lưu token
+  if (request.nextUrl.pathname.startsWith('/dashboard')) {
     return NextResponse.next();
   }
   
@@ -23,9 +24,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
   
-  // Nếu là API admin và chưa đăng nhập, trả về lỗi
-  if (isAdminAPI && !request.nextUrl.pathname.includes('/login') && !isLoggedIn) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  // Chỉ kiểm tra token khi truy cập API được bảo vệ
+  if (isProtectedApiRoute && !isLoggedIn) {
+    return NextResponse.json({ success: false, message: 'Unauthorized access' }, { status: 401 });
   }
 
   return NextResponse.next();
@@ -37,5 +38,6 @@ export const config = {
     '/dashboard/:path*',
     '/login-page',
     '/api/admins/:path*',
+    '/api/auth/me'
   ],
 }; 

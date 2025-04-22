@@ -186,13 +186,13 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
         updatedAt: chapter.updatedAt ? new Date(chapter.updatedAt) : new Date()
       })) : [];
       
-      // Lọc chỉ những chương thuộc về novel hiện tại
+      // API đã lọc các chương thuộc về novel hiện tại, nhưng vẫn kiểm tra thêm để đảm bảo
       const filteredChapters = normalizedChapters.filter(chapter => 
         chapter.idNovel === novelId || 
         (typeof chapter.idNovel === 'object' && chapter.idNovel?._id === novelId)
       );
       
-      console.log(`Lọc được ${filteredChapters.length} chương thuộc về truyện ID: ${novelId}`);
+      console.log(`Tìm thấy ${filteredChapters.length} chương thuộc về truyện ID: ${novelId}`);
       
       // Sắp xếp theo thứ tự chương
       filteredChapters.sort((a, b) => a.order - b.order);

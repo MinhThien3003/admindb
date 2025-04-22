@@ -13,20 +13,12 @@ import {
   TableRow 
 } from "@/components/ui/table"
 import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu"
-import { 
   User, 
   BookOpen, 
   Bookmark, 
   Award, 
   Star, 
   Crown, 
-  MoreHorizontal, 
   Search, 
   UserPlus,
   Download,
@@ -50,6 +42,8 @@ import { DatePickerWithRange } from "@/components/ui/date-range-picker"
 import { DateRange } from "react-day-picker"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Label } from "@/components/ui/label"
+import { toast } from "sonner"
+import axios from "axios"
 
 // Định nghĩa interface cho cấp độ người dùng
 interface UserLevel {
@@ -74,6 +68,7 @@ interface User {
   avatar: string
   createdAt: Date
   updatedAt: Date
+  idReaderExp?: string | null
   
   // Các trường bổ sung cho UI
   level?: UserLevel
@@ -178,6 +173,7 @@ const getIconComponent = (iconName: string) => {
 };
 
 // Hàm hiển thị màu cho cấp độ
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const getLevelBadge = (level: UserLevel) => {
   const colorClasses: Record<string, string> = {
     gray: "bg-gray-100 text-gray-800 border-gray-200",
@@ -336,31 +332,388 @@ export default function UsersPage() {
     setShowEditForm(true)
   }
 
+  // Hàm xử lý khi thay đổi avatar
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    // Kiểm tra loại file và kích thước
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vui lòng tải lên file hình ảnh');
+      return;
+    }
+    
+    // Kiểm tra các loại hình ảnh được chấp nhận
+    const acceptedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!acceptedTypes.includes(file.type)) {
+      toast.error('Chỉ chấp nhận các định dạng: JPG, PNG, GIF, WEBP');
+      return;
+    }
+    
+    // Kích thước tối đa (2MB)
+    const maxSizeInBytes = 2 * 1024 * 1024;
+    if (file.size > maxSizeInBytes) {
+      toast.error('Kích thước hình ảnh không được vượt quá 2MB, hệ thống sẽ tự động nén ảnh');
+      compressImage(file)
+        .then(compressedBase64 => {
+          setAvatarPreview(compressedBase64);
+          console.log('Avatar đã được nén và mã hóa thành base64');
+        })
+        .catch(error => {
+          console.error('Lỗi khi nén ảnh:', error);
+          toast.error('Không thể nén ảnh, vui lòng chọn ảnh nhỏ hơn');
+        });
+      return;
+    }
+    
+    // Nén ảnh để đảm bảo kích thước nhỏ
+    compressImage(file)
+      .then(compressedBase64 => {
+        setAvatarPreview(compressedBase64);
+        console.log('Avatar đã được nén và mã hóa thành base64');
+      })
+      .catch(error => {
+        console.error('Lỗi khi nén ảnh:', error);
+        // Fallback to traditional method if compression fails
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64Data = reader.result as string;
+          setAvatarPreview(base64Data);
+          console.log('Avatar đã được mã hóa thành base64 (không nén)');
+        };
+        reader.readAsDataURL(file);
+      });
+  }
+
+  // Hàm nén/resize ảnh
+  const compressImage = (file: File, maxWidth = 400, maxHeight = 400, quality = 0.7): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          // Tính toán kích thước mới giữ nguyên tỷ lệ
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > maxWidth) {
+            height = Math.round(height * (maxWidth / width));
+            width = maxWidth;
+          }
+          
+          if (height > maxHeight) {
+            width = Math.round(width * (maxHeight / height));
+            height = maxHeight;
+          }
+          
+          // Tạo canvas để vẽ ảnh đã resize
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Chuyển đổi sang base64 với chất lượng nén
+          const base64 = canvas.toDataURL(file.type, quality);
+          
+          // Kiểm tra kích thước dữ liệu base64
+          const approximateSize = Math.round((base64.length * 0.75) / 1024); // Kích thước KB
+          console.log(`Kích thước ảnh sau khi nén: ~${approximateSize} KB`);
+          
+          // Nếu vẫn quá lớn, nén tiếp
+          if (approximateSize > 500) {
+            // Nén nhiều hơn nữa với kích thước và chất lượng thấp hơn
+            compressImage(file, Math.round(width * 0.8), Math.round(height * 0.8), quality * 0.9)
+              .then(resolve)
+              .catch(reject);
+          } else {
+            resolve(base64);
+          }
+        };
+        img.onerror = (error) => {
+          reject(error);
+        };
+      };
+      reader.onerror = (error) => {
+        reject(error);
+      };
+    });
+  };
+
   // Hàm xử lý khi submit form chỉnh sửa
-  const handleEditFormSubmit = (e: React.FormEvent) => {
+  const handleEditFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!editingUser) return
     
-    // Trong thực tế, bạn sẽ gọi API để cập nhật thông tin người dùng
-    const updatedUsers = users.map(u => {
-      if (u._id === editingUser._id) {
-        return {
-          ...u,
-          fullname: editFormData.fullname,
-          email: editFormData.email,
-          username: editFormData.username,
-          password: editFormData.password,
-          gender: editFormData.gender,
-          status: editFormData.status,
-          avatar: avatarPreview // Cập nhật avatar mới
+    try {
+      setLoading(true);
+      toast.loading("Đang cập nhật thông tin người dùng...");
+      
+      // Kiểm tra kích thước avatar trước khi gửi
+      const processedAvatar = avatarPreview;
+      if (avatarPreview && avatarPreview !== editingUser.avatar) {
+        const avatarSizeKB = Math.round((avatarPreview.length * 0.75) / 1024);
+        console.log(`Kích thước avatar: ~${avatarSizeKB} KB`);
+        
+        if (avatarSizeKB > 800) {
+          toast.dismiss();
+          toast.error(`Avatar quá lớn (${avatarSizeKB} KB). Vui lòng chọn ảnh nhỏ hơn.`);
+          setLoading(false);
+          return;
         }
       }
-      return u
-    })
-    
-    setUsers(updatedUsers)
-    setShowEditForm(false)
+      
+      // Chuẩn bị dữ liệu cập nhật
+      const updateData = {
+        fullname: editFormData.fullname,
+        email: editFormData.email,
+        username: editFormData.username,
+        gender: editFormData.gender,
+        status: editFormData.status,
+        // Chỉ gửi password nếu đã được thay đổi
+        ...(editFormData.password !== editingUser.password ? { password: editFormData.password } : {}),
+        // Thêm avatar nếu có cập nhật
+        ...(processedAvatar && processedAvatar !== editingUser.avatar ? { avatar: processedAvatar } : {})
+      };
+      
+      console.log('Đang cập nhật thông tin người dùng:', editingUser._id);
+      console.log('Dữ liệu gửi đi có chứa avatar:', !!updateData.avatar);
+      
+      // Lấy token xác thực từ localStorage
+      let token;
+      try {
+        token = localStorage.getItem('admin_token');
+        if (!token) {
+          toast.dismiss();
+          toast.error("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
+          console.error('Token không tìm thấy trong localStorage');
+          throw new Error("Phiên làm việc không hợp lệ");
+        }
+        
+        console.log('Đã tìm thấy token xác thực');
+      } catch (error) {
+        console.error('Lỗi khi truy cập localStorage:', error);
+        toast.dismiss();
+        toast.error("Không thể xác thực phiên làm việc. Vui lòng tải lại trang và đăng nhập lại.");
+        throw new Error("Không thể xác thực phiên làm việc");
+      }
+      
+      const userId = editingUser._id;
+      
+      // Thử gọi API trực tiếp từ backend trước
+      const directUrl = `http://localhost:5000/api/users/${userId}`;
+      console.log("Thử gọi API trực tiếp tới:", directUrl);
+      
+      try {
+        // Cấu hình request
+        const requestConfig = {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        };
+        
+        // Log chi tiết request
+        console.log("Request config:", requestConfig);
+        
+        // Thực hiện request trực tiếp bằng axios
+        const response = await axios.put(directUrl, updateData, requestConfig);
+        
+        // Log kết quả từ API
+        console.log("API trực tiếp - Response status:", response.status);
+        console.log("API trực tiếp - Response data:", response.data);
+        
+        // Xử lý response thành công
+        toast.dismiss();
+        if (response.data && response.data.success) {
+          toast.success("Cập nhật thông tin người dùng thành công");
+        } else if (response.status >= 200 && response.status < 300) {
+          toast.success("Cập nhật thông tin người dùng thành công");
+        }
+        
+        // Cập nhật lại state với thông tin mới
+        setUsers(prevUsers => prevUsers.map(u => 
+          u._id === userId 
+            ? { 
+                ...u, 
+                fullname: editFormData.fullname,
+                email: editFormData.email,
+                username: editFormData.username,
+                password: editFormData.password,
+                gender: editFormData.gender,
+                status: editFormData.status,
+                avatar: processedAvatar || u.avatar
+              } 
+            : u
+        ));
+        
+        // Đóng form
+        setShowEditForm(false);
+        
+        return; // Kết thúc xử lý nếu thành công
+        
+      } catch (directError: unknown) {
+        console.error("Lỗi khi gọi API trực tiếp:", directError);
+        
+        // Thử với API Next.js proxy
+        try {
+          console.log("Thử gọi API qua Next.js proxy sau khi API trực tiếp thất bại");
+          
+          // Thiết lập timeout cho fetch request
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 giây timeout
+          
+          // Endpoint qua Next.js
+          const proxyUrl = `/api/users/${userId}`;
+          console.log("Gọi API qua Next.js proxy tại URL:", proxyUrl);
+          
+          const proxyResponse = await fetch(proxyUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(updateData),
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          // Đọc response dưới dạng text trước
+          const responseText = await proxyResponse.text();
+          console.log(`Phản hồi từ proxy (status: ${proxyResponse.status}):`);
+          console.log(`Nội dung phản hồi:`, responseText.substring(0, 300) + (responseText.length > 300 ? '...' : ''));
+          
+          // Parse JSON nếu có thể
+          let responseData = null;
+          try {
+            if (responseText && responseText.trim() !== '') {
+              responseData = JSON.parse(responseText);
+              console.log('Dữ liệu đã parse từ proxy:', responseData);
+            } else {
+              console.warn('Response text từ proxy rỗng');
+              responseData = { success: proxyResponse.ok };
+            }
+          } catch (e) {
+            console.error('Không thể parse JSON từ proxy response:', e);
+            throw new Error(`Lỗi xử lý phản hồi từ proxy: ${e instanceof Error ? e.message : 'Lỗi không xác định'}`);
+          }
+          
+          // Xử lý response
+          if (!proxyResponse.ok) {
+            console.error('Lỗi từ proxy khi cập nhật người dùng:', responseData);
+            let errorMessage = 'Không thể cập nhật thông tin người dùng';
+            
+            if (responseData && responseData.message) {
+              errorMessage = responseData.message;
+            } else if (responseData && responseData.error) {
+              errorMessage = responseData.error;
+            } else if (responseData && responseData.details) {
+              errorMessage = responseData.details;
+            }
+            
+            throw new Error(errorMessage);
+          }
+          
+          // Xử lý thành công
+          console.log('Cập nhật thành công qua proxy:', responseData);
+          toast.dismiss();
+          toast.success('Cập nhật thông tin người dùng thành công (qua proxy)');
+          
+          // Cập nhật lại state với thông tin mới
+          setUsers(prevUsers => prevUsers.map(u => 
+            u._id === userId 
+              ? { 
+                  ...u, 
+                  fullname: editFormData.fullname,
+                  email: editFormData.email,
+                  username: editFormData.username,
+                  password: editFormData.password,
+                  gender: editFormData.gender,
+                  status: editFormData.status,
+                  avatar: processedAvatar || u.avatar
+                } 
+              : u
+          ));
+          
+          // Đóng form
+          setShowEditForm(false);
+          
+        } catch (proxyError: unknown) {
+          console.error("Lỗi khi gọi API qua proxy:", proxyError);
+          // Ném lỗi ban đầu nếu cả hai phương thức đều thất bại
+          throw directError;
+        }
+      }
+      
+    } catch (error: unknown) {
+      console.error('Lỗi khi cập nhật người dùng:', error);
+      toast.dismiss();
+      
+      // Log chi tiết hơn về lỗi
+      if (error && typeof error === 'object' && 'response' in error && error.response) {
+        // Lỗi từ phía server
+        const axiosError = error as { 
+          response: { 
+            status: number; 
+            data?: {
+              message?: string;
+              error?: string;
+              details?: string;
+            }; 
+            headers?: Record<string, string>;
+          } 
+        };
+        
+        console.error("Lỗi response:", {
+          status: axiosError.response.status,
+          data: axiosError.response.data,
+          headers: axiosError.response.headers
+        });
+        
+        // Xử lý các loại lỗi phổ biến dựa trên status code
+        if (axiosError.response.status === 401) {
+          toast.error("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
+        } else if (axiosError.response.status === 409) {
+          // Xác định xem là email hay username đã tồn tại
+          const responseData = axiosError.response.data;
+          let errorMessage = 'Email hoặc tên đăng nhập đã tồn tại.';
+          
+          if (responseData && responseData.message) {
+            if (responseData.message.toLowerCase().includes('email')) {
+              errorMessage = 'Email đã được sử dụng bởi tài khoản khác.';
+            } else if (responseData.message.toLowerCase().includes('username')) {
+              errorMessage = 'Tên đăng nhập đã được sử dụng bởi tài khoản khác.';
+            }
+          }
+          
+          toast.error(errorMessage);
+        } else {
+          toast.error(`Lỗi ${axiosError.response.status}: ${axiosError.response.data?.message || "Cập nhật thất bại"}`);
+        }
+      } else if (error && typeof error === 'object' && 'request' in error) {
+        // Không nhận được response
+        console.error("Không nhận được response:", (error as {request: unknown}).request);
+        toast.error("Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.");
+      } else {
+        // Lỗi khác
+        const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi khi cập nhật thông tin";
+        toast.error(errorMessage);
+      }
+    } finally {
+      setLoading(false);
+    }
   }
 
   // Hàm xử lý khi thay đổi giá trị trong form
@@ -371,19 +724,6 @@ export default function UsersPage() {
       ...prev,
       [name]: value
     }))
-  }
-
-  // Hàm xử lý khi thay đổi avatar
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    
-    // Tạo URL cho ảnh xem trước
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      setAvatarPreview(reader.result as string)
-    }
-    reader.readAsDataURL(file)
   }
 
   // Hàm xử lý khi click vào nút thêm người dùng
@@ -403,32 +743,311 @@ export default function UsersPage() {
   }
 
   // Hàm xử lý khi submit form thêm người dùng
-  const handleAddFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleAddFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    // Tạo ID mới - dummy value, sẽ được thay thế bởi API
-    const newId = String(Date.now())
+    // Đặt trạng thái loading trước khi bắt đầu xử lý
+    setLoading(true);
+    toast.loading("Đang tạo người dùng mới...");
     
-    // Tạo avatar mặc định nếu không có avatar mới
-    const userAvatar = avatarPreview || `https://ui-avatars.com/api/?name=${encodeURIComponent(editFormData.fullname)}`
-    
-    // Tạo người dùng mới
-    const newUser: User = {
-      _id: newId,
-      fullname: editFormData.fullname,
-      email: editFormData.email,
-      username: editFormData.username,
-      password: editFormData.password,
-      gender: editFormData.gender,
-      role: "reader",
-      avatar: userAvatar,
-      createdAt: new Date(),
-      updatedAt: new Date()
+    try {
+      // Kiểm tra các trường bắt buộc
+      if (!editFormData.fullname || !editFormData.email || !editFormData.username || !editFormData.password) {
+        toast.dismiss();
+        toast.error("Vui lòng điền đầy đủ thông tin bắt buộc (họ tên, email, tên đăng nhập, mật khẩu)");
+        setLoading(false);
+        return;
+      }
+      
+      // Kiểm tra gender
+      if (!editFormData.gender || !['Male', 'Female'].includes(editFormData.gender)) {
+        toast.dismiss();
+        toast.error("Giới tính phải là 'Nam' hoặc 'Nữ'");
+        setLoading(false);
+        return;
+      }
+      
+      // Kiểm tra kích thước avatar trước khi gửi
+      let userAvatar = avatarPreview;
+      
+      if (userAvatar) {
+        const avatarSizeKB = Math.round((userAvatar.length * 0.75) / 1024);
+        console.log(`Kích thước avatar: ~${avatarSizeKB} KB`);
+        
+        if (avatarSizeKB > 800) {
+          toast.dismiss();
+          toast.error(`Avatar quá lớn (${avatarSizeKB} KB). Vui lòng chọn ảnh nhỏ hơn.`);
+          setLoading(false);
+          return;
+        }
+      } else {
+        // Tạo avatar mặc định nếu không có avatar mới
+        userAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(editFormData.fullname)}`;
+      }
+      
+      // Chuẩn bị dữ liệu cho người dùng mới
+      const newUserData = {
+        fullname: editFormData.fullname,
+        email: editFormData.email,
+        username: editFormData.username,
+        password: editFormData.password,
+        gender: editFormData.gender,
+        avatar: userAvatar,
+        status: editFormData.status,
+        role: 'reader', // Đảm bảo role luôn là reader
+        idReaderExp: null // Trường idReaderExp theo schema, sẽ được tạo bởi backend
+      };
+      
+      console.log('Đang tạo người dùng mới...');
+      console.log('Dữ liệu gửi đi:', {
+        ...newUserData,
+        password: "[HIDDEN]",
+        avatar: userAvatar ? `[Avatar Base64: ${userAvatar.substring(0, 20)}... (${userAvatar.length} chars)]` : "[Không có]"
+      });
+      
+      // Lấy token xác thực từ localStorage
+      let token;
+      try {
+        token = localStorage.getItem('admin_token');
+        if (!token) {
+          toast.dismiss();
+          toast.error("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
+          console.error('Token không tìm thấy trong localStorage');
+          throw new Error("Phiên làm việc không hợp lệ");
+        }
+        
+        console.log('Đã tìm thấy token xác thực');
+      } catch (error) {
+        console.error('Lỗi khi truy cập localStorage:', error);
+        toast.dismiss();
+        toast.error("Không thể xác thực phiên làm việc. Vui lòng tải lại trang và đăng nhập lại.");
+        throw new Error("Không thể xác thực phiên làm việc");
+      }
+      
+      // Thử gọi API trực tiếp từ backend trước
+      const directUrl = `http://localhost:5000/api/users`;
+      console.log("Thử gọi API trực tiếp tới:", directUrl);
+      
+      try {
+        // Cấu hình request
+        const requestConfig = {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        };
+        
+        // Log chi tiết request
+        console.log("Request config:", requestConfig);
+        
+        // Thực hiện request trực tiếp bằng axios
+        const response = await axios.post(directUrl, newUserData, requestConfig);
+        
+        // Log kết quả từ API
+        console.log("API trực tiếp - Response status:", response.status);
+        console.log("API trực tiếp - Response data:", response.data);
+        
+        // Xử lý response thành công
+        toast.dismiss();
+        toast.success("Tạo người dùng mới thành công");
+        
+        // Cập nhật lại danh sách người dùng với người dùng mới
+        const newUser: User = {
+          _id: response.data.data?._id || response.data._id || String(Date.now()),
+          fullname: editFormData.fullname,
+          username: editFormData.username,
+          password: editFormData.password,
+          email: editFormData.email,
+          gender: editFormData.gender,
+          role: "reader",
+          avatar: userAvatar,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          status: editFormData.status as "active" | "inactive" | "banned"
+        };
+        
+        setUsers(prevUsers => [newUser, ...prevUsers]);
+        
+        // Reset form và đóng dialog
+        setEditFormData({
+          fullname: "",
+          email: "",
+          username: "",
+          password: "",
+          gender: "Male",
+          status: "active"
+        });
+        setAvatarPreview("");
+        setShowAddForm(false);
+        
+        return; // Kết thúc xử lý nếu thành công
+        
+      } catch (directError: unknown) {
+        console.error("Lỗi khi gọi API trực tiếp:", directError);
+        
+        // Thử với API Next.js proxy
+        try {
+          console.log("Thử gọi API qua Next.js proxy sau khi API trực tiếp thất bại");
+          
+          // Thiết lập timeout cho fetch request
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 giây timeout
+          
+          // Endpoint qua Next.js
+          const proxyUrl = `/api/users`;
+          console.log("Gọi API qua Next.js proxy tại URL:", proxyUrl);
+          
+          const proxyResponse = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(newUserData),
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          // Đọc response dưới dạng text trước
+          const responseText = await proxyResponse.text();
+          console.log(`Phản hồi từ proxy (status: ${proxyResponse.status}):`);
+          console.log(`Nội dung phản hồi:`, responseText.substring(0, 300) + (responseText.length > 300 ? '...' : ''));
+          
+          // Parse JSON nếu có thể
+          let responseData = null;
+          try {
+            if (responseText && responseText.trim() !== '') {
+              responseData = JSON.parse(responseText);
+              console.log('Dữ liệu đã parse từ proxy:', responseData);
+            } else {
+              console.warn('Response text từ proxy rỗng');
+              responseData = { success: proxyResponse.ok };
+            }
+          } catch (e) {
+            console.error('Không thể parse JSON từ proxy response:', e);
+            throw new Error(`Lỗi xử lý phản hồi từ proxy: ${e instanceof Error ? e.message : 'Lỗi không xác định'}`);
+          }
+          
+          // Xử lý response
+          if (!proxyResponse.ok) {
+            console.error('Lỗi từ proxy khi tạo người dùng mới:', responseData);
+            let errorMessage = 'Không thể tạo người dùng mới';
+            
+            if (responseData && responseData.message) {
+              errorMessage = responseData.message;
+            } else if (responseData && responseData.error) {
+              errorMessage = responseData.error;
+            } else if (responseData && responseData.details) {
+              errorMessage = responseData.details;
+            }
+            
+            throw new Error(errorMessage);
+          }
+          
+          // Xử lý thành công
+          console.log('Tạo người dùng thành công qua proxy:', responseData);
+          toast.dismiss();
+          toast.success('Tạo người dùng mới thành công (qua proxy)');
+          
+          // Cập nhật lại danh sách người dùng với người dùng mới
+          const newUser: User = {
+            _id: responseData.data?._id || responseData._id || String(Date.now()),
+            fullname: editFormData.fullname,
+            username: editFormData.username,
+            password: editFormData.password,
+            email: editFormData.email,
+            gender: editFormData.gender,
+            role: "reader",
+            avatar: userAvatar,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            status: editFormData.status as "active" | "inactive" | "banned"
+          };
+          
+          setUsers(prevUsers => [newUser, ...prevUsers]);
+          
+          // Reset form và đóng dialog
+          setEditFormData({
+            fullname: "",
+            email: "",
+            username: "",
+            password: "",
+            gender: "Male",
+            status: "active"
+          });
+          setAvatarPreview("");
+          setShowAddForm(false);
+          
+        } catch (proxyError: unknown) {
+          console.error("Lỗi khi gọi API qua proxy:", proxyError);
+          // Ném lỗi ban đầu nếu cả hai phương thức đều thất bại
+          throw directError;
+        }
+      }
+      
+    } catch (error: unknown) {
+      console.error('Lỗi khi tạo người dùng mới:', error);
+      toast.dismiss();
+      
+      // Log chi tiết hơn về lỗi
+      if (error && typeof error === 'object' && 'response' in error && error.response) {
+        // Lỗi từ phía server
+        const axiosError = error as { 
+          response: { 
+            status: number; 
+            data?: {
+              message?: string;
+              error?: string;
+              details?: string;
+            }; 
+            headers?: Record<string, string>;
+          } 
+        };
+        
+        console.error("Lỗi response:", {
+          status: axiosError.response.status,
+          data: axiosError.response.data,
+          headers: axiosError.response.headers
+        });
+        
+        // Xử lý các loại lỗi phổ biến dựa trên status code
+        if (axiosError.response.status === 401) {
+          toast.error("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
+        } else if (axiosError.response.status === 409) {
+          // Xác định xem là email hay username đã tồn tại
+          const responseData = axiosError.response.data;
+          let errorMessage = 'Email hoặc tên đăng nhập đã tồn tại.';
+          
+          if (responseData && responseData.message) {
+            if (responseData.message.toLowerCase().includes('email')) {
+              errorMessage = 'Email đã được sử dụng bởi tài khoản khác.';
+            } else if (responseData.message.toLowerCase().includes('username')) {
+              errorMessage = 'Tên đăng nhập đã được sử dụng bởi tài khoản khác.';
+            }
+          }
+          
+          toast.error(errorMessage);
+        } else if (axiosError.response.status === 413) {
+          toast.error('Kích thước dữ liệu quá lớn. Vui lòng giảm kích thước ảnh avatar.');
+        } else {
+          toast.error(`Lỗi ${axiosError.response.status}: ${axiosError.response.data?.message || "Tạo người dùng thất bại"}`);
+        }
+      } else if (error && typeof error === 'object' && 'request' in error) {
+        // Không nhận được response
+        console.error("Không nhận được response:", (error as {request: unknown}).request);
+        toast.error("Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.");
+      } else {
+        // Lỗi khác
+        const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi khi tạo người dùng mới";
+        toast.error(errorMessage);
+      }
+    } finally {
+      setLoading(false);
     }
-    
-    // Cập nhật danh sách người dùng
-    setUsers([...users, newUser])
-    setShowAddForm(false)
   }
 
   // Lọc người dùng theo các điều kiện
@@ -463,10 +1082,10 @@ export default function UsersPage() {
   );
 
   // Tính tổng số tiền nạp
-  const totalDeposits = filteredUsers.reduce((sum, user) => sum + user.totalDeposit, 0);
+  const totalDeposits = filteredUsers.reduce((sum, user) => sum + (user.totalDeposit || 0), 0);
   
   // Tính tổng số xu
-  const totalCoins = filteredUsers.reduce((sum, user) => sum + user.totalCoins, 0);
+  const totalCoins = filteredUsers.reduce((sum, user) => sum + (user.totalCoins || 0), 0);
 
   // Hàm xuất dữ liệu ra file CSV
   const exportToCSV = () => {
@@ -531,6 +1150,7 @@ export default function UsersPage() {
     );
   }
 
+  // Hiển thị dashboard
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
       {/* Form popup chỉnh sửa thông tin */}
@@ -1072,5 +1692,5 @@ export default function UsersPage() {
         />
       </div>
     </div>
-  )
+  );
 } 
