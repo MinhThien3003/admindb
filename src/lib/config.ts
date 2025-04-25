@@ -14,6 +14,9 @@ const config = {
       users: '/users',
       categories: '/categories',
       admins: '/admins',
+      readerRankings: '/readerRankings',
+      authorRankings: '/authorRankings',
+      novelRankings: '/novelRankings',
     }
   },
   auth: {

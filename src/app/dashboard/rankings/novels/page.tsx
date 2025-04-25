@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import {
   Table,
@@ -13,41 +13,35 @@ import {
 import { Search } from "lucide-react"
 import { Pagination } from "@/components/ui/pagination"
 import { RewardDialog } from "@/components/dashboard/reward-dialog"
-
-interface NovelRanking {
-  id: number
-  title: string
-  author: string
-  views: number
-  likes: number
-  rating: number
-  chapters: number
-  lastUpdated: Date
-}
-
-const mockRankings: NovelRanking[] = [
-  {
-    id: 1,
-    title: "Đấu La Đại Lục",
-    author: "Đường Gia Tam Thiếu",
-    views: 1500000,
-    likes: 75000,
-    rating: 4.8,
-    chapters: 500,
-    lastUpdated: new Date("2024-03-01")
-  },
-  // Thêm mock data...
-]
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { getAllNovelRankings, NovelRanking } from "@/lib/api/novelRankings"
 
 export default function NovelRankingsPage() {
-  const [rankings] = useState(mockRankings)
+  const [rankings, setRankings] = useState<NovelRanking[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const ITEMS_PER_PAGE = 10
 
+  // Lấy dữ liệu từ API
+  useEffect(() => {
+    const fetchRankings = async () => {
+      try {
+        setLoading(true)
+        const data = await getAllNovelRankings()
+        setRankings(data)
+      } catch (error) {
+        console.error("Lỗi khi lấy dữ liệu xếp hạng truyện:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchRankings()
+  }, [])
+
   const filteredRankings = rankings.filter((ranking) =>
-    ranking.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    ranking.author.toLowerCase().includes(searchQuery.toLowerCase())
+    ranking.idNovel?.title?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const totalPages = Math.ceil(filteredRankings.length / ITEMS_PER_PAGE)
@@ -57,10 +51,10 @@ export default function NovelRankingsPage() {
   )
 
   const top3Rankings = paginatedRankings.slice(0, 3).map(ranking => ({
-    id: ranking.id,
-    name: ranking.title,
-    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(ranking.title)}`,
-    rank: ranking.id
+    id: ranking._id,
+    name: ranking.idNovel?.title || 'Truyện',
+    avatar: ranking.idNovel?.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(ranking.idNovel?.title || 'Novel')}`,
+    rank: ranking.rank || 0
   }))
 
   return (
@@ -89,27 +83,37 @@ export default function NovelRankingsPage() {
               <TableRow>
                 <TableHead>Xếp Hạng</TableHead>
                 <TableHead>Tên Truyện</TableHead>
-                <TableHead>Tác Giả</TableHead>
                 <TableHead>Lượt Xem</TableHead>
-                <TableHead>Lượt Thích</TableHead>
-                <TableHead>Đánh Giá</TableHead>
-                <TableHead>Số Chương</TableHead>
                 <TableHead>Cập Nhật</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedRankings.map((ranking, index) => (
-                <TableRow key={ranking.id}>
-                  <TableCell className="font-medium">#{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</TableCell>
-                  <TableCell>{ranking.title}</TableCell>
-                  <TableCell>{ranking.author}</TableCell>
-                  <TableCell>{ranking.views.toLocaleString()}</TableCell>
-                  <TableCell>{ranking.likes.toLocaleString()}</TableCell>
-                  <TableCell>{ranking.rating.toFixed(1)}/5</TableCell>
-                  <TableCell>{ranking.chapters}</TableCell>
-                  <TableCell>{new Date(ranking.lastUpdated).toLocaleDateString()}</TableCell>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-10">Đang tải dữ liệu...</TableCell>
                 </TableRow>
-              ))}
+              ) : paginatedRankings.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-10">Không tìm thấy dữ liệu xếp hạng truyện</TableCell>
+                </TableRow>
+              ) : (
+                paginatedRankings.map((ranking, index) => (
+                  <TableRow key={ranking._id}>
+                    <TableCell className="font-medium">#{ranking.rank || ((currentPage - 1) * ITEMS_PER_PAGE + index + 1)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={ranking.idNovel?.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(ranking.idNovel?.title || 'Novel')}`} />
+                          <AvatarFallback>{(ranking.idNovel?.title || 'N').substring(0, 2)}</AvatarFallback>
+                        </Avatar>
+                        {ranking.idNovel?.title || 'Không có tiêu đề'}
+                      </div>
+                    </TableCell>
+                    <TableCell>{ranking.viewTotal.toLocaleString()}</TableCell>
+                    <TableCell>{new Date(ranking.updatedAt).toLocaleDateString('vi-VN')}</TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
@@ -118,7 +122,7 @@ export default function NovelRankingsPage() {
       <div className="border-t">
         <Pagination
           currentPage={currentPage}
-          totalPages={totalPages}
+          totalPages={totalPages || 1}
           onPageChange={setCurrentPage}
         />
       </div>

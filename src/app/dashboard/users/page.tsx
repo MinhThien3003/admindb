@@ -566,35 +566,35 @@ export default function UsersPage() {
         // Thử với API Next.js proxy
         try {
           console.log("Thử gọi API qua Next.js proxy sau khi API trực tiếp thất bại");
-          
-          // Thiết lập timeout cho fetch request
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 giây timeout
-          
+      
+      // Thiết lập timeout cho fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 giây timeout
+      
           // Endpoint qua Next.js
           const proxyUrl = `/api/users/${userId}`;
           console.log("Gọi API qua Next.js proxy tại URL:", proxyUrl);
           
           const proxyResponse = await fetch(proxyUrl, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(updateData),
-            signal: controller.signal
-          });
-          
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updateData),
+          signal: controller.signal
+        });
+        
           clearTimeout(timeoutId);
-          
-          // Đọc response dưới dạng text trước
+        
+        // Đọc response dưới dạng text trước
           const responseText = await proxyResponse.text();
           console.log(`Phản hồi từ proxy (status: ${proxyResponse.status}):`);
-          console.log(`Nội dung phản hồi:`, responseText.substring(0, 300) + (responseText.length > 300 ? '...' : ''));
-          
-          // Parse JSON nếu có thể
+        console.log(`Nội dung phản hồi:`, responseText.substring(0, 300) + (responseText.length > 300 ? '...' : ''));
+        
+        // Parse JSON nếu có thể
           let responseData = null;
-          try {
+        try {
             if (responseText && responseText.trim() !== '') {
               responseData = JSON.parse(responseText);
               console.log('Dữ liệu đã parse từ proxy:', responseData);
@@ -602,50 +602,50 @@ export default function UsersPage() {
               console.warn('Response text từ proxy rỗng');
               responseData = { success: proxyResponse.ok };
             }
-          } catch (e) {
+        } catch (e) {
             console.error('Không thể parse JSON từ proxy response:', e);
             throw new Error(`Lỗi xử lý phản hồi từ proxy: ${e instanceof Error ? e.message : 'Lỗi không xác định'}`);
-          }
-          
-          // Xử lý response
+        }
+        
+        // Xử lý response
           if (!proxyResponse.ok) {
             console.error('Lỗi từ proxy khi cập nhật người dùng:', responseData);
-            let errorMessage = 'Không thể cập nhật thông tin người dùng';
-            
-            if (responseData && responseData.message) {
-              errorMessage = responseData.message;
-            } else if (responseData && responseData.error) {
-              errorMessage = responseData.error;
-            } else if (responseData && responseData.details) {
-              errorMessage = responseData.details;
-            }
-            
-            throw new Error(errorMessage);
+          let errorMessage = 'Không thể cập nhật thông tin người dùng';
+          
+          if (responseData && responseData.message) {
+            errorMessage = responseData.message;
+          } else if (responseData && responseData.error) {
+            errorMessage = responseData.error;
+          } else if (responseData && responseData.details) {
+            errorMessage = responseData.details;
           }
           
+          throw new Error(errorMessage);
+        }
+        
           // Xử lý thành công
           console.log('Cập nhật thành công qua proxy:', responseData);
           toast.dismiss();
           toast.success('Cập nhật thông tin người dùng thành công (qua proxy)');
-          
-          // Cập nhật lại state với thông tin mới
-          setUsers(prevUsers => prevUsers.map(u => 
+        
+        // Cập nhật lại state với thông tin mới
+        setUsers(prevUsers => prevUsers.map(u => 
             u._id === userId 
-              ? { 
-                  ...u, 
-                  fullname: editFormData.fullname,
-                  email: editFormData.email,
-                  username: editFormData.username,
-                  password: editFormData.password,
-                  gender: editFormData.gender,
-                  status: editFormData.status,
-                  avatar: processedAvatar || u.avatar
-                } 
-              : u
-          ));
-          
+            ? { 
+                ...u, 
+                fullname: editFormData.fullname,
+                email: editFormData.email,
+                username: editFormData.username,
+                password: editFormData.password,
+                gender: editFormData.gender,
+                status: editFormData.status,
+                avatar: processedAvatar || u.avatar
+              } 
+            : u
+        ));
+        
           // Đóng form
-          setShowEditForm(false);
+        setShowEditForm(false);
           
         } catch (proxyError: unknown) {
           console.error("Lỗi khi gọi API qua proxy:", proxyError);
@@ -701,7 +701,7 @@ export default function UsersPage() {
           toast.error(errorMessage);
         } else {
           toast.error(`Lỗi ${axiosError.response.status}: ${axiosError.response.data?.message || "Cập nhật thất bại"}`);
-        }
+      }
       } else if (error && typeof error === 'object' && 'request' in error) {
         // Không nhận được response
         console.error("Không nhận được response:", (error as {request: unknown}).request);
@@ -888,83 +888,83 @@ export default function UsersPage() {
         // Thử với API Next.js proxy
         try {
           console.log("Thử gọi API qua Next.js proxy sau khi API trực tiếp thất bại");
-          
-          // Thiết lập timeout cho fetch request
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 giây timeout
-          
+      
+      // Thiết lập timeout cho fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 giây timeout
+      
           // Endpoint qua Next.js
           const proxyUrl = `/api/users`;
           console.log("Gọi API qua Next.js proxy tại URL:", proxyUrl);
           
           const proxyResponse = await fetch(proxyUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(newUserData),
-            signal: controller.signal
-          });
-          
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(newUserData),
+          signal: controller.signal
+        });
+        
           clearTimeout(timeoutId);
-          
-          // Đọc response dưới dạng text trước
+        
+        // Đọc response dưới dạng text trước
           const responseText = await proxyResponse.text();
           console.log(`Phản hồi từ proxy (status: ${proxyResponse.status}):`);
-          console.log(`Nội dung phản hồi:`, responseText.substring(0, 300) + (responseText.length > 300 ? '...' : ''));
-          
-          // Parse JSON nếu có thể
+        console.log(`Nội dung phản hồi:`, responseText.substring(0, 300) + (responseText.length > 300 ? '...' : ''));
+        
+        // Parse JSON nếu có thể
           let responseData = null;
-          try {
+        try {
             if (responseText && responseText.trim() !== '') {
-              responseData = JSON.parse(responseText);
+          responseData = JSON.parse(responseText);
               console.log('Dữ liệu đã parse từ proxy:', responseData);
             } else {
               console.warn('Response text từ proxy rỗng');
               responseData = { success: proxyResponse.ok };
             }
-          } catch (e) {
+        } catch (e) {
             console.error('Không thể parse JSON từ proxy response:', e);
             throw new Error(`Lỗi xử lý phản hồi từ proxy: ${e instanceof Error ? e.message : 'Lỗi không xác định'}`);
-          }
-          
-          // Xử lý response
+        }
+        
+        // Xử lý response
           if (!proxyResponse.ok) {
             console.error('Lỗi từ proxy khi tạo người dùng mới:', responseData);
-            let errorMessage = 'Không thể tạo người dùng mới';
-            
-            if (responseData && responseData.message) {
-              errorMessage = responseData.message;
-            } else if (responseData && responseData.error) {
-              errorMessage = responseData.error;
-            } else if (responseData && responseData.details) {
-              errorMessage = responseData.details;
-            }
-            
-            throw new Error(errorMessage);
+          let errorMessage = 'Không thể tạo người dùng mới';
+          
+          if (responseData && responseData.message) {
+            errorMessage = responseData.message;
+          } else if (responseData && responseData.error) {
+            errorMessage = responseData.error;
+          } else if (responseData && responseData.details) {
+            errorMessage = responseData.details;
           }
           
+          throw new Error(errorMessage);
+        }
+        
           // Xử lý thành công
           console.log('Tạo người dùng thành công qua proxy:', responseData);
           toast.dismiss();
           toast.success('Tạo người dùng mới thành công (qua proxy)');
-          
-          // Cập nhật lại danh sách người dùng với người dùng mới
-          const newUser: User = {
+        
+        // Cập nhật lại danh sách người dùng với người dùng mới
+        const newUser: User = {
             _id: responseData.data?._id || responseData._id || String(Date.now()),
-            fullname: editFormData.fullname,
-            username: editFormData.username,
-            password: editFormData.password,
+          fullname: editFormData.fullname,
+          username: editFormData.username,
+          password: editFormData.password,
             email: editFormData.email,
-            gender: editFormData.gender,
-            role: "reader",
-            avatar: userAvatar,
-            createdAt: new Date(),
-            updatedAt: new Date(),
+          gender: editFormData.gender,
+          role: "reader",
+          avatar: userAvatar,
+          createdAt: new Date(),
+          updatedAt: new Date(),
             status: editFormData.status as "active" | "inactive" | "banned"
-          };
-          
+        };
+        
           setUsers(prevUsers => [newUser, ...prevUsers]);
           
           // Reset form và đóng dialog
@@ -977,7 +977,7 @@ export default function UsersPage() {
             status: "active"
           });
           setAvatarPreview("");
-          setShowAddForm(false);
+        setShowAddForm(false);
           
         } catch (proxyError: unknown) {
           console.error("Lỗi khi gọi API qua proxy:", proxyError);
@@ -1030,7 +1030,7 @@ export default function UsersPage() {
             }
           }
           
-          toast.error(errorMessage);
+      toast.error(errorMessage);
         } else if (axiosError.response.status === 413) {
           toast.error('Kích thước dữ liệu quá lớn. Vui lòng giảm kích thước ảnh avatar.');
         } else {

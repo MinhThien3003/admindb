@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Search, Pencil, DollarSign, Eye, Trophy, Star, Award, Shield, Zap, Download } from "lucide-react"
+import { Search, Pencil, DollarSign, Eye, Download, Eye as EyeIcon, EyeOff, Trash, Plus } from "lucide-react"
 import { format } from "date-fns"
 import { Pagination } from "@/components/ui/pagination"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -30,6 +29,15 @@ import { toast } from "sonner"
 import { DatePickerWithRange } from "@/components/ui/date-range-picker"
 import { DateRange } from "react-day-picker"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import axios from "axios"
 
 interface Author {
   _id: string;          // ID từ MongoDB
@@ -52,113 +60,6 @@ interface Author {
   totalTransactions?: number;
   totalEarnings?: number;
 }
-
-// Dữ liệu mẫu về cấp độ từ trang levels
-const authorLevels = [
-  {
-    level: 50,
-    title: "Đại Cao Thủ",
-    color: "bg-gradient-to-r from-purple-600 to-indigo-600 text-white",
-    icon: <Trophy className="h-5 w-5 text-yellow-400" />,
-    minExp: 50000,
-    maxExp: 100000,
-    benefits: [
-      "Được đăng tối đa 50 truyện",
-      "Hoa hồng 70% doanh thu",
-      "Ưu tiên hiển thị truyện",
-      "Hỗ trợ marketing",
-      "Công cụ viết truyện nâng cao"
-    ]
-  },
-  {
-    level: 40,
-    title: "Cao Thủ",
-    color: "bg-gradient-to-r from-blue-600 to-cyan-600 text-white", 
-    icon: <Star className="h-5 w-5 text-yellow-400" />,
-    minExp: 30000,
-    maxExp: 49999,
-    benefits: [
-      "Được đăng tối đa 30 truyện",
-      "Hoa hồng 60% doanh thu",
-      "Ưu tiên xét duyệt",
-      "Hỗ trợ biên tập"
-    ]
-  },
-  {
-    level: 30,
-    title: "Tinh Anh",
-    color: "bg-gradient-to-r from-emerald-600 to-teal-600 text-white",
-    icon: <Award className="h-5 w-5 text-yellow-400" />,
-    minExp: 15000,
-    maxExp: 29999,
-    benefits: [
-      "Được đăng tối đa 20 truyện",
-      "Hoa hồng 50% doanh thu",
-      "Công cụ viết truyện cơ bản"
-    ]
-  },
-  {
-    level: 20,
-    title: "Kim Cương",
-    color: "bg-gradient-to-r from-sky-600 to-blue-600 text-white",
-    icon: <Shield className="h-5 w-5 text-blue-200" />,
-    minExp: 5000,
-    maxExp: 14999,
-    benefits: [
-      "Được đăng tối đa 10 truyện",
-      "Hoa hồng 40% doanh thu"
-    ]
-  },
-  {
-    level: 10,
-    title: "Bạch Kim",
-    color: "bg-gradient-to-r from-gray-600 to-slate-600 text-white",
-    icon: <Shield className="h-5 w-5 text-gray-200" />,
-    minExp: 1000,
-    maxExp: 4999,
-    benefits: [
-      "Được đăng tối đa 5 truyện",
-      "Hoa hồng 30% doanh thu"
-    ]
-  },
-  {
-    level: 1,
-    title: "Tân Thủ",
-    color: "bg-gradient-to-r from-green-600 to-lime-600 text-white",
-    icon: <Zap className="h-5 w-5 text-yellow-200" />,
-    minExp: 0,
-    maxExp: 999,
-    benefits: [
-      "Được đăng tối đa 3 truyện",
-      "Hoa hồng 20% doanh thu"
-    ]
-  }
-];
-
-// Hàm lấy thông tin cấp độ dựa trên điểm kinh nghiệm
-const getAuthorLevel = (exp: number = 0) => {
-  return authorLevels.find(level => exp >= level.minExp && exp <= level.maxExp) || authorLevels[authorLevels.length - 1];
-}
-
-// Hàm định dạng số lượng view
-const formatViews = (views: number = 0): string => {
-  if (views >= 1000000) {
-    return `${(views / 1000000).toFixed(1)}M`;
-  } else if (views >= 1000) {
-    return `${(views / 1000).toFixed(1)}K`;
-  } else {
-    return views.toString();
-  }
-};
-
-// Hàm định dạng số tiền
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    minimumFractionDigits: 0
-  }).format(amount);
-};
 
 // Dữ liệu mẫu về tác giả
 const initialAuthors: Author[] = [
@@ -264,18 +165,55 @@ const getGenderBadge = (gender: string) => {
   );
 };
 
+// Hàm định dạng số lượng view
+const formatViews = (views: number = 0): string => {
+  if (views >= 1000000) {
+    return `${(views / 1000000).toFixed(1)}M`;
+  } else if (views >= 1000) {
+    return `${(views / 1000).toFixed(1)}K`;
+  } else {
+    return views.toString();
+  }
+};
+
+// Hàm định dạng số tiền
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    minimumFractionDigits: 0
+  }).format(amount);
+};
+
 export default function AuthorsPage() {
-  const router = useRouter()
+  //const router = useRouter()
   const [authors, setAuthors] = useState<Author[]>(initialAuthors)
   const [filteredAuthors, setFilteredAuthors] = useState<Author[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  // Đã xóa state levelFilter
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [genderFilter, setGenderFilter] = useState<string>("all")
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [currentPage, setCurrentPage] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const ITEMS_PER_PAGE = 10
+  
+  // State cho form chỉnh sửa
+  const [showEditForm, setShowEditForm] = useState(false)
+  const [editingAuthor, setEditingAuthor] = useState<Author | null>(null)
+  // State cho form thêm tác giả mới
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [showAddPassword, setShowAddPassword] = useState(false)
+  const [editFormData, setEditFormData] = useState({
+    fullname: "",
+    email: "",
+    username: "",
+    password: "",
+    gender: "Male" as "Male" | "Female",
+    status: "active" as "active" | "inactive" | "banned",
+    bio: ""
+  })
+  const [avatarPreview, setAvatarPreview] = useState<string>("")
+  const [showPassword, setShowPassword] = useState(false)
   
   // Áp dụng các bộ lọc cho danh sách tác giả
   useEffect(() => {
@@ -447,7 +385,6 @@ export default function AuthorsPage() {
       "ID",
       "Tên người dùng",
       "Email",
-      "Cấp độ",
       "Lượt xem",
       "Doanh thu",
       "Trạng thái",
@@ -458,7 +395,6 @@ export default function AuthorsPage() {
       author._id,
       author.username,
       author.email,
-      getAuthorLevel(author.experiencePoints || 0).title,
       author.totalViews || 0,
       author.totalEarnings || 0,
       author.status || "active",
@@ -478,6 +414,725 @@ export default function AuthorsPage() {
     document.body.removeChild(link);
   };
 
+  // Hàm xử lý khi click vào nút chỉnh sửa thông tin
+  const handleEditAuthor = (author: Author) => {
+    setEditingAuthor(author)
+    setEditFormData({
+      fullname: author.fullname || "",
+      email: author.email,
+      username: author.username,
+      password: author.password,
+      gender: author.gender,
+      status: author.status || "active",
+      bio: author.bio || ""
+    })
+    setAvatarPreview(author.avatar)
+    setShowPassword(false)
+    setShowEditForm(true)
+  }
+
+  // Hàm xử lý khi thay đổi avatar
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    // Kiểm tra loại file và kích thước
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vui lòng tải lên file hình ảnh');
+      return;
+    }
+    
+    // Kiểm tra các loại hình ảnh được chấp nhận
+    const acceptedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!acceptedTypes.includes(file.type)) {
+      toast.error('Chỉ chấp nhận các định dạng: JPG, PNG, GIF, WEBP');
+      return;
+    }
+    
+    // Kích thước tối đa (2MB)
+    const maxSizeInBytes = 2 * 1024 * 1024;
+    if (file.size > maxSizeInBytes) {
+      toast.error('Kích thước hình ảnh không được vượt quá 2MB, hệ thống sẽ tự động nén ảnh');
+      compressImage(file)
+        .then(compressedBase64 => {
+          setAvatarPreview(compressedBase64);
+          console.log('Avatar đã được nén và mã hóa thành base64');
+        })
+        .catch(error => {
+          console.error('Lỗi khi nén ảnh:', error);
+          toast.error('Không thể nén ảnh, vui lòng chọn ảnh nhỏ hơn');
+        });
+      return;
+    }
+    
+    // Nén ảnh để đảm bảo kích thước nhỏ
+    compressImage(file)
+      .then(compressedBase64 => {
+        setAvatarPreview(compressedBase64);
+        console.log('Avatar đã được nén và mã hóa thành base64');
+      })
+      .catch(error => {
+        console.error('Lỗi khi nén ảnh:', error);
+        // Fallback to traditional method if compression fails
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64Data = reader.result as string;
+          setAvatarPreview(base64Data);
+          console.log('Avatar đã được mã hóa thành base64 (không nén)');
+        };
+        reader.readAsDataURL(file);
+      });
+  }
+
+  // Hàm nén/resize ảnh
+  const compressImage = (file: File, maxWidth = 400, maxHeight = 400, quality = 0.7): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          // Tính toán kích thước mới giữ nguyên tỷ lệ
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > maxWidth) {
+            height = Math.round(height * (maxWidth / width));
+            width = maxWidth;
+          }
+          
+          if (height > maxHeight) {
+            width = Math.round(width * (maxHeight / height));
+            height = maxHeight;
+          }
+          
+          // Tạo canvas để vẽ ảnh đã resize
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Chuyển đổi canvas thành base64
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve(dataUrl);
+        };
+        
+        img.onerror = () => {
+          reject(new Error('Failed to load image'));
+        };
+      };
+      
+      reader.onerror = () => {
+        reject(new Error('Failed to read file'));
+      };
+    });
+  }
+
+  // Hàm xử lý khi submit form chỉnh sửa
+  const handleEditFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!editingAuthor) return;
+    
+    try {
+      setIsLoading(true);
+      toast.loading("Đang cập nhật thông tin tác giả...");
+      
+      // Kiểm tra kích thước avatar trước khi gửi
+      const processedAvatar = avatarPreview;
+      if (avatarPreview && avatarPreview !== editingAuthor.avatar) {
+        const avatarSizeKB = Math.round((avatarPreview.length * 0.75) / 1024);
+        console.log(`Kích thước avatar: ~${avatarSizeKB} KB`);
+        
+        if (avatarSizeKB > 800) {
+          toast.dismiss();
+          toast.error(`Avatar quá lớn (${avatarSizeKB} KB). Vui lòng chọn ảnh nhỏ hơn.`);
+          setIsLoading(false);
+          return;
+        }
+      }
+      
+      // Chuẩn bị dữ liệu cập nhật
+      const updateData = {
+        fullname: editFormData.fullname,
+        email: editFormData.email,
+        username: editFormData.username,
+        gender: editFormData.gender,
+        status: editFormData.status,
+        bio: editFormData.bio,
+        role: 'author', // Đảm bảo vai trò vẫn là tác giả
+        // Chỉ gửi password nếu đã được thay đổi
+        ...(editFormData.password !== editingAuthor.password ? { password: editFormData.password } : {}),
+        // Thêm avatar nếu có cập nhật
+        ...(processedAvatar && processedAvatar !== editingAuthor.avatar ? { avatar: processedAvatar } : {})
+      };
+      
+      console.log('Đang cập nhật thông tin tác giả:', editingAuthor._id);
+      console.log('Dữ liệu gửi đi có chứa avatar:', !!updateData.avatar);
+      
+      // Lấy token xác thực từ localStorage
+      let token;
+      try {
+        token = localStorage.getItem('admin_token');
+        if (!token) {
+          toast.dismiss();
+          toast.error("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
+          console.error('Token không tìm thấy trong localStorage');
+          throw new Error("Phiên làm việc không hợp lệ");
+        }
+        
+        console.log('Đã tìm thấy token xác thực');
+      } catch (error) {
+        console.error('Lỗi khi truy cập localStorage:', error);
+        toast.dismiss();
+        toast.error("Không thể xác thực phiên làm việc. Vui lòng tải lại trang và đăng nhập lại.");
+        throw new Error("Không thể xác thực phiên làm việc");
+      }
+      
+      const authorId = editingAuthor._id;
+      
+      // Thử gọi API trực tiếp từ backend trước
+      const directUrl = `http://localhost:5000/api/users/${authorId}`;
+      console.log("Thử gọi API trực tiếp tới:", directUrl);
+      
+      try {
+        // Cấu hình request
+        const requestConfig = {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        };
+        
+        // Log chi tiết request
+        console.log("Request config:", requestConfig);
+        
+        // Thực hiện request trực tiếp bằng axios
+        const response = await axios.put(directUrl, updateData, requestConfig);
+        
+        // Log kết quả từ API
+        console.log("API trực tiếp - Response status:", response.status);
+        console.log("API trực tiếp - Response data:", response.data);
+        
+        // Xử lý response thành công
+        toast.dismiss();
+        if (response.data && response.data.success) {
+          toast.success("Cập nhật thông tin tác giả thành công");
+        } else if (response.status >= 200 && response.status < 300) {
+          toast.success("Cập nhật thông tin tác giả thành công");
+        }
+        
+        // Cập nhật lại state với thông tin mới
+        setAuthors(prevAuthors => prevAuthors.map(a => 
+          a._id === authorId 
+            ? { 
+                ...a, 
+                fullname: editFormData.fullname,
+                email: editFormData.email,
+                username: editFormData.username,
+                password: editFormData.password,
+                gender: editFormData.gender,
+                status: editFormData.status,
+                bio: editFormData.bio,
+                avatar: processedAvatar || a.avatar
+              } 
+            : a
+        ));
+        
+        // Đóng form
+        setShowEditForm(false);
+        
+        return; // Kết thúc xử lý nếu thành công
+        
+      } catch (directError: unknown) {
+        console.error("Lỗi khi gọi API trực tiếp:", directError);
+        
+        // Thử với API Next.js proxy
+        try {
+          console.log("Thử gọi API qua Next.js proxy sau khi API trực tiếp thất bại");
+          
+          // Thiết lập timeout cho fetch request
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 giây timeout
+          
+          // Endpoint qua Next.js
+          const proxyUrl = `/api/users/${authorId}`;
+          console.log("Gọi API qua Next.js proxy tại URL:", proxyUrl);
+          
+          const proxyResponse = await fetch(proxyUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(updateData),
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          // Đọc response dưới dạng text trước
+          const responseText = await proxyResponse.text();
+          console.log(`Phản hồi từ proxy (status: ${proxyResponse.status}):`);
+          console.log(`Nội dung phản hồi:`, responseText.substring(0, 300) + (responseText.length > 300 ? '...' : ''));
+          
+          // Parse JSON nếu có thể
+          let responseData = null;
+          try {
+            if (responseText && responseText.trim() !== '') {
+              responseData = JSON.parse(responseText);
+              console.log('Dữ liệu đã parse từ proxy:', responseData);
+            } else {
+              console.warn('Response text từ proxy rỗng');
+              responseData = { success: proxyResponse.ok };
+            }
+          } catch (e) {
+            console.error('Không thể parse JSON từ proxy response:', e);
+            throw new Error(`Lỗi xử lý phản hồi từ proxy: ${e instanceof Error ? e.message : 'Lỗi không xác định'}`);
+          }
+          
+          // Xử lý response
+          if (!proxyResponse.ok) {
+            console.error('Lỗi từ proxy khi cập nhật tác giả:', responseData);
+            let errorMessage = 'Không thể cập nhật thông tin tác giả';
+            
+            if (responseData && responseData.message) {
+              errorMessage = responseData.message;
+            } else if (responseData && responseData.error) {
+              errorMessage = responseData.error;
+            } else if (responseData && responseData.details) {
+              errorMessage = responseData.details;
+            }
+            
+            throw new Error(errorMessage);
+          }
+          
+          // Xử lý thành công
+          console.log('Cập nhật thành công qua proxy:', responseData);
+          toast.dismiss();
+          toast.success('Cập nhật thông tin tác giả thành công (qua proxy)');
+          
+          // Cập nhật lại state với thông tin mới
+          setAuthors(prevAuthors => prevAuthors.map(a => 
+            a._id === authorId 
+              ? { 
+                  ...a, 
+                  fullname: editFormData.fullname,
+                  email: editFormData.email,
+                  username: editFormData.username,
+                  password: editFormData.password,
+                  gender: editFormData.gender,
+                  status: editFormData.status,
+                  bio: editFormData.bio,
+                  avatar: processedAvatar || a.avatar
+                } 
+              : a
+          ));
+          
+          // Đóng form
+          setShowEditForm(false);
+          
+        } catch (proxyError) {
+          console.error('Lỗi khi gọi API qua proxy:', proxyError);
+          throw proxyError;
+        }
+      }
+      
+    } catch (error) {
+      console.error('Lỗi khi cập nhật tác giả:', error);
+      toast.dismiss();
+      toast.error(error instanceof Error ? error.message : 'Không thể cập nhật thông tin tác giả');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  // Hàm xử lý khi thay đổi form
+  const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  }
+
+  // Thêm hàm xử lý xóa role author
+  const handleRemoveAuthorRole = async (author: Author) => {
+    try {
+      setIsLoading(true);
+      toast.loading(`Đang xóa quyền tác giả của ${author.fullname || author.username}...`);
+      
+      // Lấy token xác thực từ localStorage
+      let token;
+      try {
+        token = localStorage.getItem('admin_token');
+        if (!token) {
+          toast.dismiss();
+          toast.error("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
+          console.error('Token không tìm thấy trong localStorage');
+          throw new Error("Phiên làm việc không hợp lệ");
+        }
+      } catch (error) {
+        console.error('Lỗi khi truy cập localStorage:', error);
+        toast.dismiss();
+        toast.error("Không thể xác thực phiên làm việc. Vui lòng tải lại trang và đăng nhập lại.");
+        throw new Error("Không thể xác thực phiên làm việc");
+      }
+      
+      // Dữ liệu cập nhật - thay đổi role thành 'reader'
+      const updateData = {
+        role: 'reader'
+      };
+      
+      // Gọi API để cập nhật thông tin
+      try {
+        // Cấu hình request
+        const requestConfig = {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        };
+        
+        // Thực hiện request trực tiếp
+        const response = await axios.put(
+          `http://localhost:5000/api/users/${author._id}`, 
+          updateData, 
+          requestConfig
+        );
+        
+        if (response.status >= 200 && response.status < 300) {
+          // Cập nhật danh sách authors - loại bỏ tác giả đã bị xóa role
+          setAuthors(prev => prev.filter(a => a._id !== author._id));
+          
+          toast.dismiss();
+          toast.success(`Đã xóa quyền tác giả của ${author.fullname || author.username}`);
+        }
+      } catch (error) {
+        console.error('Lỗi khi xóa quyền tác giả:', error);
+        
+        // Thử với proxy
+        try {
+          const proxyResponse = await fetch(`/api/users/${author._id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(updateData)
+          });
+          
+          if (proxyResponse.ok) {
+            // Cập nhật danh sách authors - loại bỏ tác giả đã bị xóa role
+            setAuthors(prev => prev.filter(a => a._id !== author._id));
+            
+            toast.dismiss();
+            toast.success(`Đã xóa quyền tác giả của ${author.fullname || author.username}`);
+          } else {
+            const errorText = await proxyResponse.text();
+            throw new Error(`Không thể xóa quyền tác giả: ${proxyResponse.status} - ${errorText}`);
+          }
+        } catch (proxyError) {
+          console.error('Lỗi khi xóa quyền tác giả qua proxy:', proxyError);
+          throw proxyError;
+        }
+      }
+    } catch (error) {
+      console.error('Lỗi khi xóa quyền tác giả:', error);
+      toast.dismiss();
+      toast.error(error instanceof Error ? error.message : 'Không thể xóa quyền tác giả');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Hàm mở form thêm tác giả mới
+  const handleAddAuthor = () => {
+    setEditingAuthor(null)
+    setEditFormData({
+      fullname: "",
+      email: "",
+      username: "",
+      password: "",
+      gender: "Male",
+      status: "active",
+      bio: ""
+    })
+    setAvatarPreview("")
+    setShowAddPassword(false)
+    setShowAddForm(true)
+  }
+
+  // Hàm xử lý khi submit form thêm tác giả
+  const handleAddFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Đặt trạng thái loading trước khi bắt đầu xử lý
+    setIsLoading(true);
+    toast.loading("Đang tạo tác giả mới...");
+    
+    try {
+      // Kiểm tra các trường bắt buộc
+      if (!editFormData.fullname || !editFormData.email || !editFormData.username || !editFormData.password) {
+        toast.dismiss();
+        toast.error("Vui lòng điền đầy đủ thông tin bắt buộc (họ tên, email, tên đăng nhập, mật khẩu)");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Kiểm tra gender
+      if (!editFormData.gender || !['Male', 'Female'].includes(editFormData.gender)) {
+        toast.dismiss();
+        toast.error("Giới tính phải là 'Nam' hoặc 'Nữ'");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Kiểm tra kích thước avatar trước khi gửi
+      let userAvatar = avatarPreview;
+      
+      if (userAvatar) {
+        const avatarSizeKB = Math.round((userAvatar.length * 0.75) / 1024);
+        console.log(`Kích thước avatar: ~${avatarSizeKB} KB`);
+        
+        if (avatarSizeKB > 800) {
+          toast.dismiss();
+          toast.error(`Avatar quá lớn (${avatarSizeKB} KB). Vui lòng chọn ảnh nhỏ hơn.`);
+          setIsLoading(false);
+          return;
+        }
+      } else {
+        // Tạo avatar mặc định nếu không có avatar mới
+        userAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(editFormData.fullname)}`;
+      }
+      
+      // Chuẩn bị dữ liệu cho tác giả mới
+      const newAuthorData = {
+        fullname: editFormData.fullname,
+        email: editFormData.email,
+        username: editFormData.username,
+        password: editFormData.password,
+        gender: editFormData.gender,
+        avatar: userAvatar,
+        status: editFormData.status,
+        bio: editFormData.bio,
+        role: 'author', // Đảm bảo role luôn là author
+      };
+      
+      console.log('Đang tạo tác giả mới...');
+      console.log('Dữ liệu gửi đi:', {
+        ...newAuthorData,
+        password: "[HIDDEN]",
+        avatar: userAvatar ? `[Avatar Base64: ${userAvatar.substring(0, 20)}... (${userAvatar.length} chars)]` : "[Không có]"
+      });
+      
+      // Lấy token xác thực từ localStorage
+      let token;
+      try {
+        token = localStorage.getItem('admin_token');
+        if (!token) {
+          toast.dismiss();
+          toast.error("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
+          console.error('Token không tìm thấy trong localStorage');
+          throw new Error("Phiên làm việc không hợp lệ");
+        }
+        
+        console.log('Đã tìm thấy token xác thực');
+      } catch (error) {
+        console.error('Lỗi khi truy cập localStorage:', error);
+        toast.dismiss();
+        toast.error("Không thể xác thực phiên làm việc. Vui lòng tải lại trang và đăng nhập lại.");
+        throw new Error("Không thể xác thực phiên làm việc");
+      }
+      
+      // Thử gọi API trực tiếp từ backend trước
+      const directUrl = `http://localhost:5000/api/users`;
+      console.log("Thử gọi API trực tiếp tới:", directUrl);
+      
+      try {
+        // Cấu hình request
+        const requestConfig = {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        };
+        
+        // Log chi tiết request
+        console.log("Request config:", requestConfig);
+        
+        // Thực hiện request trực tiếp bằng axios
+        const response = await axios.post(directUrl, newAuthorData, requestConfig);
+        
+        // Log kết quả từ API
+        console.log("API trực tiếp - Response status:", response.status);
+        console.log("API trực tiếp - Response data:", response.data);
+        
+        // Xử lý response thành công
+        toast.dismiss();
+        toast.success("Tạo tác giả mới thành công");
+        
+        // Cập nhật lại danh sách tác giả với tác giả mới
+        const newAuthor: Author = {
+          _id: response.data.data?._id || response.data._id || String(Date.now()),
+          fullname: editFormData.fullname,
+          username: editFormData.username,
+          password: editFormData.password,
+          email: editFormData.email,
+          gender: editFormData.gender,
+          role: "author",
+          avatar: userAvatar,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          status: editFormData.status as "active" | "inactive" | "banned",
+          bio: editFormData.bio,
+          totalViews: 0,
+          totalTransactions: 0,
+          totalEarnings: 0
+        };
+        
+        setAuthors(prevAuthors => [newAuthor, ...prevAuthors]);
+        
+        // Reset form và đóng dialog
+        setEditFormData({
+          fullname: "",
+          email: "",
+          username: "",
+          password: "",
+          gender: "Male",
+          status: "active",
+          bio: ""
+        });
+        setAvatarPreview("");
+        setShowAddForm(false);
+        
+        return; // Kết thúc xử lý nếu thành công
+        
+      } catch (directError: unknown) {
+        console.error("Lỗi khi gọi API trực tiếp:", directError);
+        
+        // Thử với API Next.js proxy
+        try {
+          console.log("Thử gọi API qua Next.js proxy sau khi API trực tiếp thất bại");
+          
+          // Thiết lập timeout cho fetch request
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 giây timeout
+          
+          // Endpoint qua Next.js
+          const proxyUrl = `/api/users`;
+          console.log("Gọi API qua Next.js proxy tại URL:", proxyUrl);
+          
+          const proxyResponse = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(newAuthorData),
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          // Đọc response dưới dạng text trước
+          const responseText = await proxyResponse.text();
+          console.log(`Phản hồi từ proxy (status: ${proxyResponse.status}):`);
+          console.log(`Nội dung phản hồi:`, responseText.substring(0, 300) + (responseText.length > 300 ? '...' : ''));
+          
+          // Parse JSON nếu có thể
+          let responseData = null;
+          try {
+            if (responseText && responseText.trim() !== '') {
+              responseData = JSON.parse(responseText);
+              console.log('Dữ liệu đã parse từ proxy:', responseData);
+            } else {
+              console.warn('Response text từ proxy rỗng');
+              responseData = { success: proxyResponse.ok };
+            }
+          } catch (e) {
+            console.error('Không thể parse JSON từ proxy response:', e);
+            throw new Error(`Lỗi xử lý phản hồi từ proxy: ${e instanceof Error ? e.message : 'Lỗi không xác định'}`);
+          }
+          
+          // Xử lý phản hồi từ proxy
+          if (!proxyResponse.ok) {
+            console.error('Lỗi từ proxy khi tạo tác giả:', responseData);
+            let errorMessage = 'Không thể tạo tác giả mới';
+            
+            if (responseData && responseData.message) {
+              errorMessage = responseData.message;
+            } else if (responseData && responseData.error) {
+              errorMessage = responseData.error;
+            }
+            
+            throw new Error(errorMessage);
+          }
+          
+          // Xử lý thành công
+          console.log('Tạo tác giả mới thành công qua proxy:', responseData);
+          toast.dismiss();
+          toast.success("Tạo tác giả mới thành công (qua proxy)");
+          
+          // Lấy ID từ response nếu có
+          const newAuthorId = responseData.data?._id || responseData._id || String(Date.now());
+          
+          // Cập nhật lại danh sách tác giả
+          const newAuthor: Author = {
+            _id: newAuthorId,
+            fullname: editFormData.fullname,
+            username: editFormData.username,
+            password: editFormData.password,
+            email: editFormData.email,
+            gender: editFormData.gender,
+            role: "author",
+            avatar: userAvatar,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            status: editFormData.status as "active" | "inactive" | "banned",
+            bio: editFormData.bio,
+            totalViews: 0,
+            totalTransactions: 0,
+            totalEarnings: 0
+          };
+          
+          setAuthors(prevAuthors => [newAuthor, ...prevAuthors]);
+          
+          // Reset form và đóng dialog
+          setEditFormData({
+            fullname: "",
+            email: "",
+            username: "",
+            password: "",
+            gender: "Male",
+            status: "active",
+            bio: ""
+          });
+          setAvatarPreview("");
+          setShowAddForm(false);
+          
+        } catch (proxyError) {
+          console.error('Lỗi khi gọi API qua proxy:', proxyError);
+          throw proxyError;
+        }
+      }
+      
+    } catch (error) {
+      console.error('Lỗi khi tạo tác giả mới:', error);
+      toast.dismiss();
+      toast.error(error instanceof Error ? error.message : 'Không thể tạo tác giả mới');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   // Hiển thị loading state
   if (isLoading) {
     return (
@@ -495,14 +1150,13 @@ export default function AuthorsPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Quản lý tác giả</h2>
         <div className="flex gap-2">
-          <Button 
-            onClick={exportToCSV}
-            variant="outline"
-            size="icon"
-            className="h-9 w-9"
-          >
-            <span className="sr-only">Xuất dữ liệu</span>
-            <Download className="h-4 w-4" />
+          <Button variant="outline" className="h-9" onClick={exportToCSV}>
+            <Download className="w-4 h-4 mr-2" />
+            Xuất CSV
+          </Button>
+          <Button className="h-9" onClick={handleAddAuthor}>
+            <Plus className="w-4 h-4 mr-2" />
+            Thêm tác giả
           </Button>
         </div>
       </div>
@@ -563,7 +1217,6 @@ export default function AuthorsPage() {
               />
             </div>
             <div className="flex flex-col md:flex-row gap-2">
-              {/* Đã xóa filter cấp độ */}
               <Select
                 value={statusFilter}
                 onValueChange={setStatusFilter}
@@ -603,117 +1256,120 @@ export default function AuthorsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Thông tin tác giả</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Giới tính</TableHead>
-                    <TableHead>Trạng thái</TableHead>
+                    <TableHead>Tác giả</TableHead>
+                    <TableHead>Thông tin</TableHead>
+                    <TableHead>Lượt xem</TableHead>
+                    <TableHead>Doanh thu</TableHead>
                     <TableHead>Ngày tham gia</TableHead>
                     <TableHead className="text-right">Thao tác</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedAuthors.length > 0 ? (
-                    paginatedAuthors.map((author) => {
-                      // Đã xóa phần lấy cấp độ tác giả
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-10">
+                        <div className="flex flex-col items-center justify-center">
+                          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+                          <p className="mt-2 text-sm text-gray-500">Đang tải dữ liệu...</p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : paginatedAuthors.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-10">
+                        <p className="text-gray-500">Không có tác giả nào phù hợp với tìm kiếm</p>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paginatedAuthors.map(author => {
                       return (
-                        <TableRow key={author._id}>
-                          <TableCell className="font-medium">{author._id.substring(0, 8)}...</TableCell>
+                        <TableRow key={author._id} className="hover:bg-gray-50">
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div className="h-8 w-8 rounded-full bg-gray-100 overflow-hidden">
-                                      {author.avatar ? (
-                                        <img src={author.avatar} alt={author.username} className="h-full w-full object-cover" />
-                                      ) : (
-                                        <div className="h-full w-full flex items-center justify-center text-xs font-medium">
-                                          {author.username.charAt(0).toUpperCase()}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Tác giả: {author.username}</p>
-                                    {author.bio && <p className="text-xs mt-1">{author.bio}</p>}
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                              <span>{author.fullname || author.username}</span>
+                            <div className="flex items-center gap-3">
+                              <img 
+                                src={author.avatar || "https://via.placeholder.com/40"} 
+                                alt={author.username}
+                                className="w-10 h-10 rounded-full object-cover border border-gray-200" 
+                              />
+                              <div>
+                                <p className="font-medium">{author.fullname || author.username}</p>
+                                <p className="text-sm text-gray-500">{author.email}</p>
+                              </div>
                             </div>
                           </TableCell>
-                          <TableCell>{author.email}</TableCell>
-                          <TableCell>{getGenderBadge(author.gender)}</TableCell>
-                          <TableCell>{getStatusBadge(author.status || 'active')}</TableCell>
                           <TableCell>
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-1">
+                                {getStatusBadge(author.status || "active")}
+                                {getGenderBadge(author.gender)}
+                              </div>
+                              <p className="text-sm text-gray-500 truncate max-w-[200px] mt-1">
+                                {author.bio || "Chưa cập nhật tiểu sử"}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Eye className="h-4 w-4 text-blue-500" />
+                              <span>{formatViews(author.totalViews)}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <DollarSign className="h-4 w-4 text-green-500" />
+                              <span>{formatCurrency(author.totalEarnings || 0)}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {format(author.createdAt, "dd/MM/yyyy")}
+                          </TableCell>
+                          <TableCell className="text-right">
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className="cursor-help">{format(author.createdAt, "dd/MM/yyyy")}</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditAuthor(author);
+                                    }}
+                                    className="mr-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>{format(author.createdAt, "dd/MM/yyyy HH:mm:ss")}</p>
+                                  <p>Chỉnh sửa tác giả</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (window.confirm(`Bạn có chắc chắn muốn xóa quyền tác giả của ${author.fullname || author.username}?`)) {
+                                        handleRemoveAuthorRole(author);
+                                      }
+                                    }}
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <Trash className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Xóa quyền tác giả</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
                           </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end space-x-1">
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon"
-                                      onClick={() => router.push(`/dashboard/authors/${author._id}`)}
-                                    >
-                                      <Eye className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Xem chi tiết</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon">
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Chỉnh sửa</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon">
-                                      <DollarSign className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Thanh toán</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                          </TableCell>
                         </TableRow>
                       );
                     })
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-10">
-                        <div className="flex flex-col items-center justify-center text-muted-foreground">
-                          <Shield className="h-10 w-10 mb-2" />
-                          <p>Không tìm thấy tác giả nào</p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -739,6 +1395,294 @@ export default function AuthorsPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Dialog form chỉnh sửa tác giả */}
+      <Dialog open={showEditForm} onOpenChange={setShowEditForm}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Chỉnh sửa thông tin tác giả</DialogTitle>
+            <DialogDescription>
+              Cập nhật thông tin chi tiết của tác giả. Nhấn Lưu khi hoàn tất.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={handleEditFormSubmit} className="space-y-6 py-4">
+            <div className="flex flex-col items-center mb-4">
+              <div className="relative h-24 w-24 rounded-full overflow-hidden border border-gray-200">
+                <img 
+                  src={avatarPreview || "https://via.placeholder.com/150"} 
+                  alt="Avatar" 
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <Label htmlFor="avatar" className="mt-2 cursor-pointer text-sm text-blue-600 hover:text-blue-800">
+                Thay đổi ảnh đại diện
+              </Label>
+              <Input 
+                id="avatar" 
+                type="file" 
+                accept="image/*" 
+                onChange={handleAvatarChange} 
+                className="hidden"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="username">Tên đăng nhập</Label>
+                <Input
+                  id="username"
+                  name="username"
+                  value={editFormData.username}
+                  onChange={handleEditFormChange}
+                  placeholder="Tên đăng nhập"
+                  readOnly // Username không được thay đổi
+                  className="bg-gray-100"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={editFormData.email}
+                  onChange={handleEditFormChange}
+                  placeholder="Email"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="fullname">Họ và tên</Label>
+                <Input
+                  id="fullname"
+                  name="fullname"
+                  value={editFormData.fullname}
+                  onChange={handleEditFormChange}
+                  placeholder="Họ và tên"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="gender">Giới tính</Label>
+                <Select name="gender" value={editFormData.gender} onValueChange={(value) => setEditFormData(prev => ({ ...prev, gender: value as "Male" | "Female" }))}>
+                  <SelectTrigger id="gender">
+                    <SelectValue placeholder="Chọn giới tính" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Nam</SelectItem>
+                    <SelectItem value="Female">Nữ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="status">Trạng thái</Label>
+                <Select name="status" value={editFormData.status} onValueChange={(value) => setEditFormData(prev => ({ ...prev, status: value as "active" | "inactive" | "banned" }))}>
+                  <SelectTrigger id="status">
+                    <SelectValue placeholder="Chọn trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Hoạt động</SelectItem>
+                    <SelectItem value="inactive">Không hoạt động</SelectItem>
+                    <SelectItem value="banned">Bị cấm</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Mật khẩu</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <EyeIcon className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  value={editFormData.password}
+                  onChange={handleEditFormChange}
+                  placeholder="Mật khẩu"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="bio">Tiểu sử</Label>
+              <textarea
+                id="bio"
+                name="bio"
+                value={editFormData.bio}
+                onChange={handleEditFormChange}
+                placeholder="Tiểu sử tác giả"
+                className="w-full min-h-[100px] px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-4">
+              <Button type="button" variant="outline" onClick={() => setShowEditForm(false)}>
+                Hủy
+              </Button>
+              <Button type="submit">
+                Lưu thay đổi
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog form thêm tác giả mới */}
+      <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Thêm tác giả mới</DialogTitle>
+            <DialogDescription>
+              Nhập thông tin chi tiết của tác giả mới. Nhấn Tạo tác giả khi hoàn tất.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={handleAddFormSubmit} className="space-y-6 py-4">
+            <div className="flex flex-col items-center mb-4">
+              <div className="relative h-24 w-24 rounded-full overflow-hidden border border-gray-200">
+                <img 
+                  src={avatarPreview || "https://via.placeholder.com/150"} 
+                  alt="Avatar" 
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <Label htmlFor="add-avatar" className="mt-2 cursor-pointer text-sm text-blue-600 hover:text-blue-800">
+                Chọn ảnh đại diện
+              </Label>
+              <Input 
+                id="add-avatar" 
+                type="file" 
+                accept="image/*" 
+                onChange={handleAvatarChange} 
+                className="hidden"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="add-username">Tên đăng nhập *</Label>
+                <Input
+                  id="add-username"
+                  name="username"
+                  value={editFormData.username}
+                  onChange={handleEditFormChange}
+                  placeholder="Tên đăng nhập"
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="add-email">Email *</Label>
+                <Input
+                  id="add-email"
+                  name="email"
+                  type="email"
+                  value={editFormData.email}
+                  onChange={handleEditFormChange}
+                  placeholder="Email"
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="add-fullname">Họ và tên *</Label>
+                <Input
+                  id="add-fullname"
+                  name="fullname"
+                  value={editFormData.fullname}
+                  onChange={handleEditFormChange}
+                  placeholder="Họ và tên"
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="add-gender">Giới tính</Label>
+                <Select name="gender" value={editFormData.gender} onValueChange={(value) => setEditFormData(prev => ({ ...prev, gender: value as "Male" | "Female" }))}>
+                  <SelectTrigger id="add-gender">
+                    <SelectValue placeholder="Chọn giới tính" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Nam</SelectItem>
+                    <SelectItem value="Female">Nữ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="add-status">Trạng thái</Label>
+                <Select name="status" value={editFormData.status} onValueChange={(value) => setEditFormData(prev => ({ ...prev, status: value as "active" | "inactive" | "banned" }))}>
+                  <SelectTrigger id="add-status">
+                    <SelectValue placeholder="Chọn trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Hoạt động</SelectItem>
+                    <SelectItem value="inactive">Không hoạt động</SelectItem>
+                    <SelectItem value="banned">Bị cấm</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="add-password">Mật khẩu *</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2"
+                    onClick={() => setShowAddPassword(!showAddPassword)}
+                  >
+                    {showAddPassword ? <EyeOff className="h-3.5 w-3.5" /> : <EyeIcon className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
+                <Input
+                  id="add-password"
+                  name="password"
+                  type={showAddPassword ? "text" : "password"}
+                  value={editFormData.password}
+                  onChange={handleEditFormChange}
+                  placeholder="Mật khẩu"
+                  required
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="add-bio">Tiểu sử</Label>
+              <textarea
+                id="add-bio"
+                name="bio"
+                value={editFormData.bio}
+                onChange={handleEditFormChange}
+                placeholder="Tiểu sử tác giả"
+                className="w-full min-h-[100px] px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-4">
+              <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
+                Hủy
+              </Button>
+              <Button type="submit">
+                Tạo tác giả
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

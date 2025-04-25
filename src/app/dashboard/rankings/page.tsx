@@ -24,207 +24,9 @@ import { format } from "date-fns"
 import { vi } from "date-fns/locale"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
-
-// Novel Rankings
-interface NovelRanking {
-  id: number
-  title: string
-  author: string
-  views: number
-  likes: number
-  rating: number
-  chapters: number
-  lastUpdated: Date
-  coverImage: string
-}
-
-const mockNovelRankings: NovelRanking[] = [
-  {
-    id: 1,
-    title: "Đấu La Đại Lục",
-    author: "Đường Gia Tam Thiếu",
-    views: 1500000,
-    likes: 75000,
-    rating: 4.8,
-    chapters: 500,
-    lastUpdated: new Date("2024-03-01"),
-    coverImage: "https://ui-avatars.com/api/?name=Đấu+La"
-  },
-  {
-    id: 2,
-    title: "Đấu Phá Thương Khung",
-    author: "Thiên Tàm Thổ Đậu",
-    views: 1200000,
-    likes: 65000,
-    rating: 4.7,
-    chapters: 450,
-    lastUpdated: new Date("2024-03-02"),
-    coverImage: "https://ui-avatars.com/api/?name=Đấu+Phá"
-  },
-  {
-    id: 3,
-    title: "Ngược Dòng Thời Gian Để Yêu Anh",
-    author: "Nguyệt Hạ Điệp Ảnh",
-    views: 1000000,
-    likes: 60000,
-    rating: 4.6,
-    chapters: 120,
-    lastUpdated: new Date("2024-02-28"),
-    coverImage: "https://ui-avatars.com/api/?name=Ngược+Dòng"
-  },
-  {
-    id: 4,
-    title: "Tu Chân Tứ Vạn Năm",
-    author: "Ngã Cật Tây Hồng Thị",
-    views: 980000,
-    likes: 55000,
-    rating: 4.5,
-    chapters: 350,
-    lastUpdated: new Date("2024-03-03"),
-    coverImage: "https://ui-avatars.com/api/?name=Tu+Chân"
-  },
-  {
-    id: 5,
-    title: "Võ Luyện Đỉnh Phong",
-    author: "Mạc Mặc",
-    views: 950000,
-    likes: 53000,
-    rating: 4.4,
-    chapters: 480,
-    lastUpdated: new Date("2024-03-01"),
-    coverImage: "https://ui-avatars.com/api/?name=Võ+Luyện"
-  }
-]
-
-// Author Rankings
-interface AuthorRanking {
-  id: number
-  name: string
-  avatar: string
-  totalNovels: number
-  totalViews: number
-  totalLikes: number
-  followers: number
-  rating: number
-  level: 'Junior' | 'Senior' | 'Expert'
-}
-
-const mockAuthorRankings: AuthorRanking[] = [
-  {
-    id: 1,
-    name: "Đường Gia Tam Thiếu",
-    avatar: "https://ui-avatars.com/api/?name=Đường+Gia+Tam+Thiếu",
-    totalNovels: 15,
-    totalViews: 5000000,
-    totalLikes: 250000,
-    followers: 100000,
-    rating: 4.9,
-    level: 'Expert'
-  },
-  {
-    id: 2,
-    name: "Thiên Tàm Thổ Đậu",
-    avatar: "https://ui-avatars.com/api/?name=Thiên+Tàm+Thổ+Đậu",
-    totalNovels: 12,
-    totalViews: 4800000,
-    totalLikes: 240000,
-    followers: 95000,
-    rating: 4.8,
-    level: 'Expert'
-  },
-  {
-    id: 3,
-    name: "Mạc Mặc",
-    avatar: "https://ui-avatars.com/api/?name=Mạc+Mặc",
-    totalNovels: 10,
-    totalViews: 3500000,
-    totalLikes: 175000,
-    followers: 70000,
-    rating: 4.7,
-    level: 'Expert'
-  },
-  {
-    id: 4,
-    name: "Ngã Cật Tây Hồng Thị",
-    avatar: "https://ui-avatars.com/api/?name=Ngã+Cật+Tây+Hồng+Thị",
-    totalNovels: 8,
-    totalViews: 2800000,
-    totalLikes: 140000,
-    followers: 56000,
-    rating: 4.6,
-    level: 'Senior'
-  },
-  {
-    id: 5,
-    name: "Nguyệt Hạ Điệp Ảnh",
-    avatar: "https://ui-avatars.com/api/?name=Nguyệt+Hạ+Điệp+Ảnh",
-    totalNovels: 6,
-    totalViews: 2000000,
-    totalLikes: 100000,
-    followers: 40000,
-    rating: 4.5,
-    level: 'Senior'
-  }
-]
-
-// User Rankings
-interface UserRanking {
-  id: number
-  username: string
-  avatar: string
-  exp: number
-  totalSpent: number
-  memberSince: Date
-  level: string
-}
-
-const mockUserRankings: UserRanking[] = [
-  {
-    id: 1,
-    username: "reader_king",
-    avatar: "https://ui-avatars.com/api/?name=Reader+King",
-    exp: 5000,
-    totalSpent: 5000000,
-    memberSince: new Date("2023-01-01"),
-    level: "VIP Diamond"
-  },
-  {
-    id: 2,
-    username: "novel_addict",
-    avatar: "https://ui-avatars.com/api/?name=Novel+Addict",
-    exp: 4800,
-    totalSpent: 4800000,
-    memberSince: new Date("2023-02-15"),
-    level: "VIP Gold"
-  },
-  {
-    id: 3,
-    username: "book_lover",
-    avatar: "https://ui-avatars.com/api/?name=Book+Lover",
-    exp: 4200,
-    totalSpent: 4000000,
-    memberSince: new Date("2023-03-20"),
-    level: "VIP Silver"
-  },
-  {
-    id: 4,
-    username: "night_reader",
-    avatar: "https://ui-avatars.com/api/?name=Night+Reader",
-    exp: 3500,
-    totalSpent: 3500000,
-    memberSince: new Date("2023-04-10"),
-    level: "VIP Bronze"
-  },
-  {
-    id: 5,
-    username: "story_seeker",
-    avatar: "https://ui-avatars.com/api/?name=Story+Seeker",
-    exp: 3000,
-    totalSpent: 3000000,
-    memberSince: new Date("2023-05-05"),
-    level: "Pro Member"
-  }
-]
+import { getAllReaderRankings, ReaderRanking } from "@/lib/api/readerRankings"
+import { getAllAuthorRankings, AuthorRanking } from "@/lib/api/authorRankings"
+import { getAllNovelRankings, NovelRanking } from "@/lib/api/novelRankings"
 
 export default function RankingsPage() {
   const searchParams = useSearchParams()
@@ -243,7 +45,67 @@ export default function RankingsPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>()
   const [date, setDate] = useState<Date>()
   
+  const [readerRankings, setReaderRankings] = useState<ReaderRanking[]>([])
+  const [authorRankings, setAuthorRankings] = useState<AuthorRanking[]>([])
+  const [novelRankings, setNovelRankings] = useState<NovelRanking[]>([])
+  
+  const [loadingReaders, setLoadingReaders] = useState(true)
+  const [loadingAuthors, setLoadingAuthors] = useState(true)
+  const [loadingNovels, setLoadingNovels] = useState(true)
+  
   const ITEMS_PER_PAGE = 10
+
+  // Lấy dữ liệu Xếp hạng độc giả
+  useEffect(() => {
+    const fetchReaderRankings = async () => {
+      try {
+        setLoadingReaders(true)
+        const data = await getAllReaderRankings()
+        setReaderRankings(data)
+      } catch (error) {
+        console.error("Lỗi khi lấy dữ liệu xếp hạng độc giả:", error)
+      } finally {
+        setLoadingReaders(false)
+      }
+    }
+    
+    fetchReaderRankings()
+  }, [])
+  
+  // Lấy dữ liệu Xếp hạng tác giả
+  useEffect(() => {
+    const fetchAuthorRankings = async () => {
+      try {
+        setLoadingAuthors(true)
+        const data = await getAllAuthorRankings()
+        setAuthorRankings(data)
+      } catch (error) {
+        console.error("Lỗi khi lấy dữ liệu xếp hạng tác giả:", error)
+      } finally {
+        setLoadingAuthors(false)
+      }
+    }
+    
+    fetchAuthorRankings()
+  }, [])
+  
+  // TODO: Implement Novel Rankings API
+  useEffect(() => {
+    // Gọi API Novel Rankings
+    const fetchNovelRankings = async () => {
+      try {
+        setLoadingNovels(true)
+        const data = await getAllNovelRankings()
+        setNovelRankings(data)
+      } catch (error) {
+        console.error("Lỗi khi lấy dữ liệu xếp hạng truyện:", error)
+      } finally {
+        setLoadingNovels(false)
+      }
+    }
+    
+    fetchNovelRankings()
+  }, [])
 
   // Set active tab based on URL query parameter
   useEffect(() => {
@@ -259,20 +121,20 @@ export default function RankingsPage() {
   }
 
   // Novels filtering and pagination
-  const filteredNovels = mockNovelRankings.filter((novel) => {
+  const filteredNovels = novelRankings.filter((novel) => {
     // Lọc theo truy vấn tìm kiếm
-    const matchesSearch = novel.title.toLowerCase().includes(novelSearchQuery.toLowerCase()) ||
-      novel.author.toLowerCase().includes(novelSearchQuery.toLowerCase())
+    const matchesSearch = novel.idNovel?.title?.toLowerCase().includes(novelSearchQuery.toLowerCase())
     
     // Lọc theo khoảng thời gian
-    const matchesDateRange = !dateRange?.from || !dateRange?.to || 
-      (novel.lastUpdated >= dateRange.from && novel.lastUpdated <= dateRange.to)
+    const novelDate = novel.updatedAt ? new Date(novel.updatedAt) : null
+    const matchesDateRange = !dateRange?.from || !dateRange?.to || !novelDate || 
+      (novelDate >= dateRange.from && novelDate <= dateRange.to)
     
     // Lọc theo ngày đơn
-    const matchesDate = !date || 
-      (novel.lastUpdated.getDate() === date.getDate() && 
-       novel.lastUpdated.getMonth() === date.getMonth() && 
-       novel.lastUpdated.getFullYear() === date.getFullYear())
+    const matchesDate = !date || !novelDate || 
+      (novelDate.getDate() === date.getDate() && 
+       novelDate.getMonth() === date.getMonth() && 
+       novelDate.getFullYear() === date.getFullYear())
     
     return matchesSearch && (matchesDateRange || matchesDate)
   })
@@ -284,9 +146,9 @@ export default function RankingsPage() {
   )
 
   // Authors filtering and pagination
-  const filteredAuthors = mockAuthorRankings.filter((author) => {
+  const filteredAuthors = authorRankings.filter((author) => {
     // Lọc theo truy vấn tìm kiếm
-    return author.name.toLowerCase().includes(authorSearchQuery.toLowerCase())
+    return author.idUser?.fullname?.toLowerCase().includes(authorSearchQuery.toLowerCase())
   })
   
   const authorTotalPages = Math.ceil(filteredAuthors.length / ITEMS_PER_PAGE)
@@ -296,19 +158,21 @@ export default function RankingsPage() {
   )
 
   // Users filtering and pagination
-  const filteredUsers = mockUserRankings.filter((user) => {
+  const filteredUsers = readerRankings.filter((user) => {
     // Lọc theo truy vấn tìm kiếm
-    const matchesSearch = user.username.toLowerCase().includes(userSearchQuery.toLowerCase())
+    const matchesSearch = user.idUser?.fullname?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+      (user.idUser?.username && user.idUser.username.toLowerCase().includes(userSearchQuery.toLowerCase()))
     
-    // Lọc theo khoảng thời gian
-    const matchesDateRange = !dateRange?.from || !dateRange?.to || 
-      (user.memberSince >= dateRange.from && user.memberSince <= dateRange.to)
+    // Lọc theo khoảng thời gian (sử dụng createdAt thay cho memberSince)
+    const userDate = user.createdAt ? new Date(user.createdAt) : null
+    const matchesDateRange = !dateRange?.from || !dateRange?.to || !userDate || 
+      (userDate >= dateRange.from && userDate <= dateRange.to)
     
     // Lọc theo ngày đơn
-    const matchesDate = !date || 
-      (user.memberSince.getDate() === date.getDate() && 
-       user.memberSince.getMonth() === date.getMonth() && 
-       user.memberSince.getFullYear() === date.getFullYear())
+    const matchesDate = !date || !userDate || 
+      (userDate.getDate() === date.getDate() && 
+       userDate.getMonth() === date.getMonth() && 
+       userDate.getFullYear() === date.getFullYear())
     
     return matchesSearch && (matchesDateRange || matchesDate)
   })
@@ -359,94 +223,94 @@ export default function RankingsPage() {
                 />
               </PopoverContent>
             </Popover>
-            <div className="flex items-center">
-              <DatePickerWithRange
-                date={dateRange}
-                onDateChange={(range) => {
-                  setDateRange(range)
-                  setDate(undefined)
-                }}
-              />
-            </div>
+            <DatePickerWithRange
+              date={dateRange}
+              onDateChange={(range) => {
+                setDateRange(range)
+                setDate(undefined)
+              }}
+            />
             <Button variant="outline" onClick={handleResetFilters}>Đặt lại</Button>
           </div>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="novels">Truyện nổi bật</TabsTrigger>
-          <TabsTrigger value="authors">Tác giả nổi bật</TabsTrigger>
-          <TabsTrigger value="users">Người dùng tích cực</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="novels">Truyện</TabsTrigger>
+          <TabsTrigger value="authors">Tác giả</TabsTrigger>
+          <TabsTrigger value="users">Người dùng</TabsTrigger>
         </TabsList>
 
         {/* Tab Truyện nổi bật */}
         <TabsContent value="novels" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Truyện nổi bật</CardTitle>
+              <CardTitle>Bảng xếp hạng truyện</CardTitle>
               <CardDescription>
-                Bảng xếp hạng các truyện nổi bật trên nền tảng. Các tiêu chí xếp hạng bao gồm lượt xem, lượt thích và đánh giá.
+                Các truyện được xếp hạng dựa trên lượt xem, đánh giá và lượt thích.
               </CardDescription>
-              <div className="flex w-full max-w-sm items-center space-x-2">
-                <Input
-                  placeholder="Tìm kiếm theo tên truyện hoặc tác giả..."
-                  value={novelSearchQuery}
-                  onChange={(e) => setNovelSearchQuery(e.target.value)}
-                  className="flex-1"
-                />
-                <Button type="submit" size="icon" variant="outline">
-                  <Search className="h-4 w-4" />
-                </Button>
-              </div>
             </CardHeader>
             <CardContent>
+              <div className="flex w-full items-center space-x-2 mb-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Tìm kiếm theo tên truyện hoặc tác giả..."
+                    value={novelSearchQuery}
+                    onChange={(e) => setNovelSearchQuery(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+              </div>
               <div className="border rounded-md">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[80px]">Xếp hạng</TableHead>
-                      <TableHead>Truyện</TableHead>
-                      <TableHead>Tác giả</TableHead>
+                      <TableHead>Tên truyện</TableHead>
                       <TableHead>Lượt xem</TableHead>
-                      <TableHead>Lượt thích</TableHead>
-                      <TableHead>Đánh giá</TableHead>
-                      <TableHead>Số chương</TableHead>
                       <TableHead>Cập nhật</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedNovels.map((novel, index) => (
-                      <TableRow key={novel.id}>
-                        <TableCell className="font-medium">
-                          #{(novelCurrentPage - 1) * ITEMS_PER_PAGE + index + 1}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={novel.coverImage} />
-                              <AvatarFallback>{novel.title.substring(0, 2)}</AvatarFallback>
-                            </Avatar>
-                            <span>{novel.title}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>{novel.author}</TableCell>
-                        <TableCell>{novel.views.toLocaleString()}</TableCell>
-                        <TableCell>{novel.likes.toLocaleString()}</TableCell>
-                        <TableCell>{novel.rating}</TableCell>
-                        <TableCell>{novel.chapters}</TableCell>
-                        <TableCell>
-                          {novel.lastUpdated.toLocaleDateString('vi-VN')}
-                        </TableCell>
+                    {loadingNovels ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-10">Đang tải dữ liệu...</TableCell>
                       </TableRow>
-                    ))}
+                    ) : paginatedNovels.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-10">Không tìm thấy dữ liệu xếp hạng truyện</TableCell>
+                      </TableRow>
+                    ) : (
+                      paginatedNovels.map((novel, index) => (
+                        <TableRow key={novel._id || index}>
+                          <TableCell className="font-medium">
+                            #{novel.rank || ((novelCurrentPage - 1) * ITEMS_PER_PAGE + index + 1)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={novel.idNovel?.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(novel.idNovel?.title || 'Novel')}`} />
+                                <AvatarFallback>{(novel.idNovel?.title || 'N').substring(0, 2)}</AvatarFallback>
+                              </Avatar>
+                              <span>{novel.idNovel?.title || 'Không có tiêu đề'}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{novel.viewTotal?.toLocaleString() || '0'}</TableCell>
+                          <TableCell>
+                            {novel.updatedAt ? new Date(novel.updatedAt).toLocaleDateString('vi-VN') : 'N/A'}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
               <div className="mt-4">
                 <Pagination
                   currentPage={novelCurrentPage}
-                  totalPages={novelTotalPages}
+                  totalPages={novelTotalPages || 1}
                   onPageChange={setNovelCurrentPage}
                 />
               </div>
@@ -458,74 +322,69 @@ export default function RankingsPage() {
         <TabsContent value="authors" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Tác giả nổi bật</CardTitle>
+              <CardTitle>Bảng xếp hạng tác giả</CardTitle>
               <CardDescription>
-                Bảng xếp hạng các tác giả nổi bật trên nền tảng. Các tiêu chí xếp hạng bao gồm số lượng truyện, lượt xem và đánh giá.
+                Các tác giả được xếp hạng dựa trên số lượng người theo dõi, tổng lượt xem và đánh giá.
               </CardDescription>
-              <div className="flex w-full max-w-sm items-center space-x-2">
-                <Input
-                  placeholder="Tìm kiếm theo tên tác giả..."
-                  value={authorSearchQuery}
-                  onChange={(e) => setAuthorSearchQuery(e.target.value)}
-                  className="flex-1"
-                />
-                <Button type="submit" size="icon" variant="outline">
-                  <Search className="h-4 w-4" />
-                </Button>
-              </div>
             </CardHeader>
             <CardContent>
+              <div className="flex w-full items-center space-x-2 mb-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Tìm kiếm theo tên tác giả..."
+                    value={authorSearchQuery}
+                    onChange={(e) => setAuthorSearchQuery(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+              </div>
               <div className="border rounded-md">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[80px]">Xếp hạng</TableHead>
                       <TableHead>Tác giả</TableHead>
-                      <TableHead>Cấp độ</TableHead>
-                      <TableHead>Số truyện</TableHead>
                       <TableHead>Lượt xem</TableHead>
-                      <TableHead>Lượt thích</TableHead>
-                      <TableHead>Người theo dõi</TableHead>
-                      <TableHead>Đánh giá</TableHead>
+                      <TableHead>Thông tin</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedAuthors.map((author, index) => (
-                      <TableRow key={author.id}>
-                        <TableCell className="font-medium">
-                          #{(authorCurrentPage - 1) * ITEMS_PER_PAGE + index + 1}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={author.avatar} />
-                              <AvatarFallback>{author.name.substring(0, 2)}</AvatarFallback>
-                            </Avatar>
-                            <span>{author.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold
-                            ${author.level === 'Expert' ? 'bg-green-100 text-green-800' :
-                              author.level === 'Senior' ? 'bg-blue-100 text-blue-800' :
-                              'bg-gray-100 text-gray-800'}`}>
-                            {author.level}
-                          </span>
-                        </TableCell>
-                        <TableCell>{author.totalNovels}</TableCell>
-                        <TableCell>{author.totalViews.toLocaleString()}</TableCell>
-                        <TableCell>{author.totalLikes.toLocaleString()}</TableCell>
-                        <TableCell>{author.followers.toLocaleString()}</TableCell>
-                        <TableCell>{author.rating}</TableCell>
+                    {loadingAuthors ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-10">Đang tải dữ liệu...</TableCell>
                       </TableRow>
-                    ))}
+                    ) : paginatedAuthors.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-10">Không tìm thấy dữ liệu xếp hạng tác giả</TableCell>
+                      </TableRow>
+                    ) : (
+                      paginatedAuthors.map((author, index) => (
+                        <TableRow key={author._id}>
+                          <TableCell className="font-medium">
+                            #{author.rank || ((authorCurrentPage - 1) * ITEMS_PER_PAGE + index + 1)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={author.idUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(author.idUser?.fullname || 'Author')}`} />
+                                <AvatarFallback>{(author.idUser?.fullname || 'A').substring(0, 2)}</AvatarFallback>
+                              </Avatar>
+                              <span>{author.idUser?.fullname}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{author.viewTotal?.toLocaleString() || '0'}</TableCell>
+                          <TableCell>{author.idUser?.gender || 'N/A'}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
               <div className="mt-4">
                 <Pagination
                   currentPage={authorCurrentPage}
-                  totalPages={authorTotalPages}
+                  totalPages={authorTotalPages || 1}
                   onPageChange={setAuthorCurrentPage}
                 />
               </div>
@@ -537,74 +396,71 @@ export default function RankingsPage() {
         <TabsContent value="users" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Người dùng tích cực</CardTitle>
+              <CardTitle>Bảng xếp hạng người dùng tích cực</CardTitle>
               <CardDescription>
-                Bảng xếp hạng người dùng tích cực nhất trên nền tảng. Các tiêu chí xếp hạng bao gồm kinh nghiệm (EXP) và chi tiêu.
+                Người dùng được xếp hạng dựa trên kinh nghiệm và hoạt động.
               </CardDescription>
-              <div className="flex w-full max-w-sm items-center space-x-2">
-                <Input
-                  placeholder="Tìm kiếm theo tên người dùng..."
-                  value={userSearchQuery}
-                  onChange={(e) => setUserSearchQuery(e.target.value)}
-                  className="flex-1"
-                />
-                <Button type="submit" size="icon" variant="outline">
-                  <Search className="h-4 w-4" />
-                </Button>
-              </div>
             </CardHeader>
             <CardContent>
+              <div className="flex w-full items-center space-x-2 mb-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Tìm kiếm theo tên người dùng..."
+                    value={userSearchQuery}
+                    onChange={(e) => setUserSearchQuery(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+              </div>
               <div className="border rounded-md">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[80px]">Xếp hạng</TableHead>
                       <TableHead>Người dùng</TableHead>
-                      <TableHead>Cấp độ</TableHead>
-                      <TableHead>EXP</TableHead>
-                      <TableHead>Chi tiêu</TableHead>
+                      <TableHead>Kinh nghiệm</TableHead>
                       <TableHead>Ngày tham gia</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedUsers.map((user, index) => (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-medium">
-                          #{(userCurrentPage - 1) * ITEMS_PER_PAGE + index + 1}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={user.avatar} />
-                              <AvatarFallback>{user.username.substring(0, 2)}</AvatarFallback>
-                            </Avatar>
-                            <span>{user.username}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold
-                            ${user.level.includes('Diamond') ? 'bg-purple-100 text-purple-800' :
-                              user.level.includes('Gold') ? 'bg-yellow-100 text-yellow-800' :
-                              user.level.includes('Silver') ? 'bg-gray-100 text-gray-800' :
-                              user.level.includes('Bronze') ? 'bg-orange-100 text-orange-800' :
-                              'bg-blue-100 text-blue-800'}`}>
-                            {user.level}
-                          </span>
-                        </TableCell>
-                        <TableCell>{user.exp.toLocaleString()}</TableCell>
-                        <TableCell>{user.totalSpent.toLocaleString()} đ</TableCell>
-                        <TableCell>
-                          {user.memberSince.toLocaleDateString('vi-VN')}
-                        </TableCell>
+                    {loadingReaders ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-10">Đang tải dữ liệu...</TableCell>
                       </TableRow>
-                    ))}
+                    ) : paginatedUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-10">Không tìm thấy dữ liệu xếp hạng người dùng</TableCell>
+                      </TableRow>
+                    ) : (
+                      paginatedUsers.map((user, index) => (
+                        <TableRow key={user._id}>
+                          <TableCell className="font-medium">
+                            #{user.rank || ((userCurrentPage - 1) * ITEMS_PER_PAGE + index + 1)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={user.idUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.idUser?.fullname || 'User')}`} />
+                                <AvatarFallback>{(user.idUser?.fullname || user.idUser?.username || 'U').charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <span>{user.idUser?.fullname || user.idUser?.username || 'Người dùng'}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{(user.idReaderExp?.totalExp || user.idReaderExp?.exp || 0).toLocaleString()} EXP</TableCell>
+                          <TableCell>
+                            {user.createdAt ? new Date(user.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
               <div className="mt-4">
                 <Pagination
                   currentPage={userCurrentPage}
-                  totalPages={userTotalPages}
+                  totalPages={userTotalPages || 1}
                   onPageChange={setUserCurrentPage}
                 />
               </div>

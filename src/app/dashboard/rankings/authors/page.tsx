@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import {
   Table,
@@ -14,42 +14,34 @@ import { Search } from "lucide-react"
 import { Pagination } from "@/components/ui/pagination"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { RewardDialog } from "@/components/dashboard/reward-dialog"
-
-interface AuthorRanking {
-  id: number
-  name: string
-  avatar: string
-  totalNovels: number
-  totalViews: number
-  totalLikes: number
-  followers: number
-  rating: number
-  level: 'Junior' | 'Senior' | 'Expert'
-}
-
-const mockRankings: AuthorRanking[] = [
-  {
-    id: 1,
-    name: "Đường Gia Tam Thiếu",
-    avatar: "https://ui-avatars.com/api/?name=Đường+Gia+Tam+Thiếu",
-    totalNovels: 15,
-    totalViews: 5000000,
-    totalLikes: 250000,
-    followers: 100000,
-    rating: 4.9,
-    level: 'Expert'
-  },
-  // Thêm mock data...
-]
+import { getAllAuthorRankings, AuthorRanking } from "@/lib/api/authorRankings"
 
 export default function AuthorRankingsPage() {
-  const [rankings] = useState(mockRankings)
+  const [rankings, setRankings] = useState<AuthorRanking[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const ITEMS_PER_PAGE = 10
 
+  // Lấy dữ liệu từ API
+  useEffect(() => {
+    const fetchRankings = async () => {
+      try {
+        setLoading(true)
+        const data = await getAllAuthorRankings()
+        setRankings(data)
+      } catch (error) {
+        console.error("Lỗi khi lấy dữ liệu xếp hạng tác giả:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchRankings()
+  }, [])
+
   const filteredRankings = rankings.filter((ranking) =>
-    ranking.name.toLowerCase().includes(searchQuery.toLowerCase())
+    ranking.idUser?.fullname?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const totalPages = Math.ceil(filteredRankings.length / ITEMS_PER_PAGE)
@@ -59,10 +51,10 @@ export default function AuthorRankingsPage() {
   )
 
   const top3Rankings = paginatedRankings.slice(0, 3).map(ranking => ({
-    id: ranking.id,
-    name: ranking.name,
-    avatar: ranking.avatar,
-    rank: ranking.id
+    id: ranking._id,
+    name: ranking.idUser?.fullname || 'Tác giả',
+    avatar: ranking.idUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(ranking.idUser?.fullname || 'Author')}`,
+    rank: ranking.rank || 0
   }))
 
   return (
@@ -91,42 +83,37 @@ export default function AuthorRankingsPage() {
               <TableRow>
                 <TableHead>Xếp Hạng</TableHead>
                 <TableHead>Tác Giả</TableHead>
-                <TableHead>Cấp Độ</TableHead>
-                <TableHead>Số Truyện</TableHead>
                 <TableHead>Lượt Xem</TableHead>
-                <TableHead>Lượt Thích</TableHead>
-                <TableHead>Người Theo Dõi</TableHead>
-                <TableHead>Đánh Giá</TableHead>
+                <TableHead>Thông Tin</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedRankings.map((ranking, index) => (
-                <TableRow key={ranking.id}>
-                  <TableCell className="font-medium">#{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={ranking.avatar} />
-                        <AvatarFallback>{ranking.name[0]}</AvatarFallback>
-                      </Avatar>
-                      {ranking.name}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold
-                      ${ranking.level === 'Expert' ? 'bg-green-100 text-green-800' :
-                        ranking.level === 'Senior' ? 'bg-blue-100 text-blue-800' :
-                        'bg-gray-100 text-gray-800'}`}>
-                      {ranking.level}
-                    </span>
-                  </TableCell>
-                  <TableCell>{ranking.totalNovels}</TableCell>
-                  <TableCell>{ranking.totalViews.toLocaleString()}</TableCell>
-                  <TableCell>{ranking.totalLikes.toLocaleString()}</TableCell>
-                  <TableCell>{ranking.followers.toLocaleString()}</TableCell>
-                  <TableCell>{ranking.rating.toFixed(1)}/5</TableCell>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-10">Đang tải dữ liệu...</TableCell>
                 </TableRow>
-              ))}
+              ) : paginatedRankings.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-10">Không tìm thấy dữ liệu xếp hạng tác giả</TableCell>
+                </TableRow>
+              ) : (
+                paginatedRankings.map((ranking, index) => (
+                  <TableRow key={ranking._id}>
+                    <TableCell className="font-medium">#{ranking.rank || ((currentPage - 1) * ITEMS_PER_PAGE + index + 1)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={ranking.idUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(ranking.idUser?.fullname || 'Author')}`} />
+                          <AvatarFallback>{(ranking.idUser?.fullname || 'A').substring(0, 2)}</AvatarFallback>
+                        </Avatar>
+                        {ranking.idUser?.fullname || 'Tác giả'}
+                      </div>
+                    </TableCell>
+                    <TableCell>{ranking.viewTotal?.toLocaleString() || '0'}</TableCell>
+                    <TableCell>{ranking.idUser?.gender || 'N/A'}</TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
@@ -135,7 +122,7 @@ export default function AuthorRankingsPage() {
       <div className="border-t">
         <Pagination
           currentPage={currentPage}
-          totalPages={totalPages}
+          totalPages={totalPages || 1}
           onPageChange={setCurrentPage}
         />
       </div>

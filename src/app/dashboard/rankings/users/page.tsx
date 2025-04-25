@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import {
   Table,
@@ -14,42 +14,35 @@ import { Search } from "lucide-react"
 import { Pagination } from "@/components/ui/pagination"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { RewardDialog } from "@/components/dashboard/reward-dialog"
-
-interface UserRanking {
-  id: number
-  username: string
-  avatar: string
-  totalComments: number
-  totalLikes: number
-  totalReviews: number
-  totalSpent: number
-  memberSince: Date
-  level: string
-}
-
-const mockRankings: UserRanking[] = [
-  {
-    id: 1,
-    username: "reader_king",
-    avatar: "https://ui-avatars.com/api/?name=Reader+King",
-    totalComments: 1500,
-    totalLikes: 3000,
-    totalReviews: 200,
-    totalSpent: 5000000,
-    memberSince: new Date("2023-01-01"),
-    level: "VIP Diamond"
-  },
-  // Thêm mock data...
-]
+import { getAllReaderRankings, ReaderRanking } from "@/lib/api/readerRankings"
 
 export default function UserRankingsPage() {
-  const [rankings] = useState(mockRankings)
+  const [rankings, setRankings] = useState<ReaderRanking[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const ITEMS_PER_PAGE = 10
 
+  // Lấy dữ liệu từ API
+  useEffect(() => {
+    const fetchRankings = async () => {
+      try {
+        setLoading(true)
+        const data = await getAllReaderRankings()
+        setRankings(data)
+      } catch (error) {
+        console.error("Lỗi khi lấy dữ liệu xếp hạng:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchRankings()
+  }, [])
+
   const filteredRankings = rankings.filter((ranking) =>
-    ranking.username.toLowerCase().includes(searchQuery.toLowerCase())
+    ranking.idUser.fullname.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (ranking.idUser.username && ranking.idUser.username.toLowerCase().includes(searchQuery.toLowerCase()))
   )
 
   const totalPages = Math.ceil(filteredRankings.length / ITEMS_PER_PAGE)
@@ -59,11 +52,11 @@ export default function UserRankingsPage() {
   )
 
   const top3Rankings = paginatedRankings.slice(0, 3).map(ranking => ({
-    id: ranking.id,
-    name: ranking.username,
-    avatar: ranking.avatar,
-    rank: ranking.id
-  }))
+    id: ranking._id,
+    name: ranking.idUser.fullname || ranking.idUser.username || 'Người dùng',
+    avatar: ranking.idUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(ranking.idUser.fullname || 'User')}`,
+    rank: ranking.rank || 0
+  } as {id: string | number, name: string, avatar: string, rank: number}))
 
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
@@ -91,39 +84,37 @@ export default function UserRankingsPage() {
               <TableRow>
                 <TableHead>Xếp Hạng</TableHead>
                 <TableHead>Người Dùng</TableHead>
-                <TableHead>Cấp Độ</TableHead>
-                <TableHead>Bình Luận</TableHead>
-                <TableHead>Lượt Thích</TableHead>
-                <TableHead>Đánh Giá</TableHead>
-                <TableHead>Tổng Chi Tiêu</TableHead>
+                <TableHead>Kinh Nghiệm</TableHead>
                 <TableHead>Ngày Tham Gia</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedRankings.map((ranking, index) => (
-                <TableRow key={ranking.id}>
-                  <TableCell className="font-medium">#{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={ranking.avatar} />
-                        <AvatarFallback>{ranking.username[0]}</AvatarFallback>
-                      </Avatar>
-                      {ranking.username}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
-                      {ranking.level}
-                    </span>
-                  </TableCell>
-                  <TableCell>{ranking.totalComments.toLocaleString()}</TableCell>
-                  <TableCell>{ranking.totalLikes.toLocaleString()}</TableCell>
-                  <TableCell>{ranking.totalReviews.toLocaleString()}</TableCell>
-                  <TableCell>{ranking.totalSpent.toLocaleString()} VNĐ</TableCell>
-                  <TableCell>{new Date(ranking.memberSince).toLocaleDateString()}</TableCell>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-10">Đang tải dữ liệu...</TableCell>
                 </TableRow>
-              ))}
+              ) : paginatedRankings.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-10">Không tìm thấy dữ liệu xếp hạng</TableCell>
+                </TableRow>
+              ) : (
+                paginatedRankings.map((ranking, index) => (
+                  <TableRow key={ranking._id}>
+                    <TableCell className="font-medium">#{ranking.rank || ((currentPage - 1) * ITEMS_PER_PAGE + index + 1)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={ranking.idUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(ranking.idUser.fullname || 'User')}`} />
+                          <AvatarFallback>{(ranking.idUser.fullname || ranking.idUser.username || 'U').charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        {ranking.idUser.fullname || ranking.idUser.username || 'Người dùng'}
+                      </div>
+                    </TableCell>
+                    <TableCell>{(ranking.idReaderExp.totalExp || ranking.idReaderExp.exp || 0).toLocaleString()} EXP</TableCell>
+                    <TableCell>{new Date(ranking.createdAt).toLocaleDateString('vi-VN')}</TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>

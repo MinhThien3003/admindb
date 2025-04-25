@@ -183,7 +183,7 @@ export default function CategoriesPage() {
       })
       return
     }
-    
+
     setIsSubmitting(true)
     toast({
       title: "Đang xử lý",
@@ -337,20 +337,20 @@ export default function CategoriesPage() {
           })
           
           // Cập nhật lại state với thông tin mới
-          const newCategoryItem: Category = {
+    const newCategoryItem: Category = {
             _id: responseData._id || responseData.data?._id || String(Date.now()),
             titleCategory: categoryData.titleCategory,
             description: categoryData.description,
-            novelCount: 0,
-            createdAt: new Date().toISOString().split('T')[0],
-            updatedAt: new Date().toISOString()
-          }
-          
-          setCategories([...categories, newCategoryItem])
+      novelCount: 0,
+      createdAt: new Date().toISOString().split('T')[0],
+      updatedAt: new Date().toISOString()
+    }
+
+    setCategories([...categories, newCategoryItem])
           
           // Đóng form và reset dữ liệu
-          setNewCategory({ titleCategory: "", description: "" })
-          setIsAddDialogOpen(false)
+    setNewCategory({ titleCategory: "", description: "" })
+    setIsAddDialogOpen(false)
           
         } catch (proxyError) {
           console.error("Lỗi khi gọi API qua proxy:", proxyError);
@@ -395,11 +395,11 @@ export default function CategoriesPage() {
         }
       } else {
         // Lỗi khác
-        toast({
+    toast({
           title: "Lỗi",
           description: error instanceof Error ? error.message : "Đã xảy ra lỗi khi tạo thể loại mới.",
           variant: "destructive"
-        })
+    })
       }
     } finally {
       setIsSubmitting(false)
@@ -429,7 +429,7 @@ export default function CategoriesPage() {
       })
       return
     }
-    
+
     setIsSubmitting(true)
     toast({
       title: "Đang cập nhật",
@@ -585,21 +585,21 @@ export default function CategoriesPage() {
           })
           
           // Cập nhật lại state với thông tin mới
-          setCategories(categories.map(category => 
-            category._id === selectedCategory._id 
-              ? { 
-                  ...category, 
-                  titleCategory: newCategory.titleCategory || category.titleCategory, 
-                  description: newCategory.description || category.description,
-                  updatedAt: new Date().toISOString()
-                } 
-              : category
-          ))
+    setCategories(categories.map(category => 
+      category._id === selectedCategory._id 
+        ? { 
+            ...category, 
+            titleCategory: newCategory.titleCategory || category.titleCategory, 
+            description: newCategory.description || category.description,
+            updatedAt: new Date().toISOString()
+          } 
+        : category
+    ))
           
           // Đóng form
-          setSelectedCategory(null)
-          setNewCategory({ titleCategory: "", description: "" })
-          setIsEditDialogOpen(false)
+    setSelectedCategory(null)
+    setNewCategory({ titleCategory: "", description: "" })
+    setIsEditDialogOpen(false)
           
         } catch (proxyError) {
           console.error("Lỗi khi gọi API qua proxy:", proxyError);
@@ -644,11 +644,11 @@ export default function CategoriesPage() {
         }
       } else {
         // Lỗi khác
-        toast({
+    toast({
           title: "Lỗi",
           description: error instanceof Error ? error.message : "Đã xảy ra lỗi khi cập nhật thể loại.",
           variant: "destructive"
-        })
+    })
       }
     } finally {
       setIsSubmitting(false)

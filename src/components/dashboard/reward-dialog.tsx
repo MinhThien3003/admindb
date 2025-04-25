@@ -21,7 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 interface RewardDialogProps {
   topRankings: {
-    id: number
+    id: string | number
     name: string
     avatar: string
     rank: number
