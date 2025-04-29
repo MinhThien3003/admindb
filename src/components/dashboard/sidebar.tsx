@@ -20,6 +20,7 @@ import {
   Clipboard
 } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
 
 const routes = [
     {
@@ -80,6 +81,16 @@ export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
     const [isTransactionOpen, setIsTransactionOpen] = useState(false);
+    const { logout } = useAuth();
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+            router.push('/login-page');
+        } catch (error) {
+            console.error('Lỗi khi đăng xuất:', error);
+        }
+    };
 
     return (
         <div className={cn("pb-12", className)}>
@@ -159,7 +170,7 @@ export function Sidebar({ className }: SidebarProps) {
                         Tài khoản
                     </h2>
                     <div className="space-y-1">
-                        <Button variant="ghost" className="w-full justify-start" onClick={() => router.push('/auth/login')}>
+                        <Button variant="ghost" className="w-full justify-start" onClick={handleLogout}>
                             <LogOut className="mr-2 h-4 w-4" />
                             Logout
                         </Button>

@@ -127,7 +127,12 @@ export async function PUT(
     
     try {
       // Gọi hàm API để cập nhật thông tin người dùng
-      console.log(`Gọi hàm updateUser với userId: ${userId} và dữ liệu cập nhật`);
+      console.log(`Gọi hàm updateUser với userId: ${userId} và dữ liệu cập nhật:`, {
+        ...data,
+        password: data.password ? '[HIDDEN]' : undefined,
+        avatar: data.avatar ? '[AVATAR DATA]' : undefined
+      });
+
       const updatedUser = await updateUser(userId, data);
       
       if (!updatedUser) {
@@ -138,7 +143,14 @@ export async function PUT(
         );
       }
       
-      console.log('Cập nhật thành công người dùng:', updatedUser._id || userId);
+      console.log('Cập nhật thành công người dùng:', {
+        id: updatedUser._id || userId,
+        fullname: updatedUser.fullname,
+        email: updatedUser.email,
+        username: updatedUser.username,
+        role: updatedUser.role,
+        status: updatedUser.status
+      });
       
       return NextResponse.json({
         message: 'Cập nhật thông tin người dùng thành công',
@@ -164,6 +176,25 @@ export async function PUT(
           { message: 'Tên đăng nhập đã được sử dụng', status: 'error' },
           { status: 409 }
         );
+      }
+
+      // Nếu là lỗi từ backend
+      if (updateError instanceof Error && 'response' in updateError) {
+        const axiosError = updateError as any;
+        if (axiosError.response) {
+          console.error('Lỗi từ backend:', {
+            status: axiosError.response.status,
+            data: axiosError.response.data
+          });
+          return NextResponse.json(
+            { 
+              message: axiosError.response.data?.message || 'Lỗi từ backend',
+              status: 'error',
+              details: axiosError.response.data
+            },
+            { status: axiosError.response.status }
+          );
+        }
       }
       
       throw updateError; // Ném lỗi để xử lý ở catch bên ngoài
@@ -194,8 +225,9 @@ export async function DELETE(
     // Xác thực token
     const authResult = await verifyAuth(request);
     if (!authResult.success) {
+      console.error('Xác thực token thất bại:', authResult.error);
       return NextResponse.json(
-        { message: authResult.error },
+        { message: 'Không có quyền truy cập hoặc phiên làm việc đã hết hạn', error: authResult.error },
         { status: 401 }
       );
     }
@@ -203,23 +235,35 @@ export async function DELETE(
     const userId = params.id;
     console.log(`Đang xóa người dùng với ID: ${userId}`);
     
+    // Kiểm tra ID hợp lệ
+    if (!userId) {
+      console.error('ID người dùng không hợp lệ');
+      return NextResponse.json(
+        { message: 'ID người dùng không hợp lệ' },
+        { status: 400 }
+      );
+    }
+    
     // Gọi hàm API để xóa người dùng
     const result = await deleteUser(userId);
     
     if (!result) {
+      console.error(`Không tìm thấy người dùng với ID ${userId} để xóa`);
       return NextResponse.json(
         { message: 'Không tìm thấy người dùng để xóa' },
         { status: 404 }
       );
     }
     
+    console.log(`Xóa người dùng ID ${userId} thành công`);
     return NextResponse.json({
-      message: 'Xóa người dùng thành công'
+      message: 'Xóa người dùng thành công',
+      status: 'success'
     });
   } catch (error) {
     console.error('Lỗi khi xóa người dùng:', error);
     return NextResponse.json(
-      { message: 'Đã xảy ra lỗi khi xóa người dùng' },
+      { message: 'Đã xảy ra lỗi khi xóa người dùng', error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

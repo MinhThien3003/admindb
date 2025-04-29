@@ -291,17 +291,18 @@ export async function updateUser(userId: string, updateData: UpdateData) {
         token = localStorage.getItem('admin_token');
         console.log('Lấy token từ localStorage:', token ? 'Tìm thấy token' : 'Không tìm thấy token');
       } else {
-        // Server environment - không thể sử dụng localStorage
-        console.log('Đang chạy ở môi trường server, không thể sử dụng localStorage');
-        throw new Error('Không thể lấy token xác thực trong môi trường server');
+        // Server environment - lấy token từ cookie
+        const cookies = require('next/headers').cookies();
+        token = cookies.get('admin_token')?.value;
+        console.log('Lấy token từ cookie:', token ? 'Tìm thấy token' : 'Không tìm thấy token');
       }
       
       if (!token) {
-        console.error('Không tìm thấy token trong localStorage');
+        console.error('Không tìm thấy token');
         throw new Error('Không có token xác thực, vui lòng đăng nhập lại');
       }
     } catch (error) {
-      console.error('Lỗi khi truy cập localStorage:', error);
+      console.error('Lỗi khi lấy token:', error);
       throw new Error('Không thể xác thực yêu cầu. Vui lòng tải lại trang và đăng nhập lại.');
     }
     
@@ -447,7 +448,7 @@ export async function updateUser(userId: string, updateData: UpdateData) {
  * @param userId ID của người dùng cần xóa
  * @returns Promise<boolean> Kết quả xóa
  */
-export async function deleteUser(userId: string) {
+export async function deleteUser(userId: string): Promise<boolean> {
   try {
     if (!userId) {
       throw new Error('ID người dùng không hợp lệ');
@@ -457,19 +458,13 @@ export async function deleteUser(userId: string) {
     
     // Lấy URL từ config
     const apiUrl = `${config.api.baseUrl}${config.api.endpoints.users}/${userId}`;
-    
-    // Lấy token xác thực từ localStorage hoặc cookie
-    const token = localStorage.getItem('admin_token');
-    if (!token) {
-      throw new Error('Không có token xác thực, vui lòng đăng nhập lại');
-    }
+    console.log('Gọi API từ URL:', apiUrl);
     
     // Gọi API từ backend
     const response = await fetch(apiUrl, {
       method: 'DELETE',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'Content-Type': 'application/json'
       }
     });
 

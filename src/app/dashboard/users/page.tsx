@@ -26,7 +26,8 @@ import {
   Pencil,
   Upload,
   Eye,
-  EyeOff
+  EyeOff,
+  Trash2
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -698,10 +699,10 @@ export default function UsersPage() {
             }
           }
           
-          toast.error(errorMessage);
+      toast.error(errorMessage);
         } else {
           toast.error(`Lỗi ${axiosError.response.status}: ${axiosError.response.data?.message || "Cập nhật thất bại"}`);
-      }
+        }
       } else if (error && typeof error === 'object' && 'request' in error) {
         // Không nhận được response
         console.error("Không nhận được response:", (error as {request: unknown}).request);
@@ -1049,6 +1050,70 @@ export default function UsersPage() {
       setLoading(false);
     }
   }
+
+  // Thêm hàm xóa người dùng
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      // Hiển thị confirm dialog
+      if (!confirm('Bạn có chắc chắn muốn xóa người dùng này?')) {
+        return;
+      }
+
+      // Lấy token xác thực từ localStorage
+      const token = localStorage.getItem('admin_token');
+      if (!token) {
+        toast('Không tìm thấy token xác thực, vui lòng đăng nhập lại', {
+          type: 'error'
+        });
+        return;
+      }
+
+      // Gọi API xóa với token
+      const response = await fetch(`/api/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      // Đọc response dưới dạng text trước
+      const responseText = await response.text();
+      console.log(`Phản hồi từ API (status: ${response.status}):`, responseText);
+
+      // Parse JSON nếu có thể
+      let responseData = null;
+      try {
+        if (responseText && responseText.trim() !== '') {
+          responseData = JSON.parse(responseText);
+          console.log('Dữ liệu đã parse:', responseData);
+        }
+      } catch (e) {
+        console.error('Không thể parse JSON từ response:', e);
+      }
+
+      if (response.ok) {
+        toast('Xóa người dùng thành công', {
+          type: 'success'
+        });
+        // Cập nhật lại danh sách
+        setUsers(users.filter(user => user._id !== userId));
+      } else {
+        // Xử lý các loại lỗi
+        if (response.status === 401) {
+          toast.error('Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.');
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
+        } else {
+          const errorMessage = responseData?.message || 'Không thể xóa người dùng';
+          toast.error(errorMessage);
+        }
+      }
+    } catch (error) {
+      console.error('Lỗi khi xóa người dùng:', error);
+      toast.error('Có lỗi xảy ra khi xóa người dùng');
+    }
+  };
 
   // Lọc người dùng theo các điều kiện
   const filteredUsers = users.filter((user) => {
@@ -1657,15 +1722,24 @@ export default function UsersPage() {
                       </TooltipProvider>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8 w-8 p-0"
-                        onClick={() => handleEditUser(user)}
-                      >
-                        <span className="sr-only">Chỉnh sửa</span>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => handleEditUser(user)}
+                          className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => handleDeleteUser(user._id)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

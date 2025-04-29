@@ -236,18 +236,9 @@ export default function UserActions({ userId }: UserActionsProps) {
 
   const handleDeleteUser = async () => {
     try {
-      // Lấy token xác thực
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        throw new Error('Không tìm thấy token xác thực, vui lòng đăng nhập lại');
-      }
-      
       // Gọi API DELETE để xóa người dùng
       const response = await fetch(`/api/users/${userId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        method: 'DELETE'
       });
       
       // Đọc response dưới dạng text trước

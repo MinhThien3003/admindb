@@ -31,12 +31,32 @@ export async function GET() {
     const users = await response.json();
     console.log('Tổng số người dùng nhận được:', users.length);
     
+    if (!Array.isArray(users)) {
+      console.error('Dữ liệu không phải là mảng:', users);
+      return NextResponse.json(
+        { error: 'Dữ liệu không đúng định dạng' },
+        { status: 500 }
+      );
+    }
+    
     // Lọc chỉ lấy users có role là "author"
-    const authorUsers = users.filter((user: any) => user.role === 'author');
+    const authorUsers = users.filter((user: any) => {
+      if (!user || typeof user !== 'object') {
+        console.warn('User không hợp lệ:', user);
+        return false;
+      }
+      return user.role === 'author';
+    });
+    
     console.log('Số lượng tác giả (author):', authorUsers.length);
+    console.log('Dữ liệu tác giả:', JSON.stringify(authorUsers, null, 2));
     
     // Trả về kết quả
-    return NextResponse.json(authorUsers);
+    return NextResponse.json(authorUsers, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8'
+      }
+    });
   } catch (error) {
     console.error('Lỗi khi xử lý API authors:', error);
     return NextResponse.json(

@@ -2,10 +2,8 @@
 
 import * as React from "react"
 import { format } from "date-fns"
-import { vi } from "date-fns/locale"
 import { Calendar as CalendarIcon } from "lucide-react"
-import type { DateRange } from "react-day-picker"
-
+import { DateRange } from "react-day-picker"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
@@ -18,23 +16,21 @@ import {
 interface DatePickerWithRangeProps {
   date: DateRange | undefined
   onDateChange: (date: DateRange | undefined) => void
-  className?: string
 }
 
 export function DatePickerWithRange({
   date,
   onDateChange,
-  className,
 }: DatePickerWithRangeProps) {
   return (
-    <div className={cn("grid gap-2", className)}>
+    <div className={cn("grid gap-2")}>
       <Popover>
         <PopoverTrigger asChild>
           <Button
             id="date"
             variant={"outline"}
             className={cn(
-              "w-full justify-start text-left font-normal",
+              "w-[300px] justify-start text-left font-normal",
               !date && "text-muted-foreground"
             )}
           >
@@ -42,11 +38,11 @@ export function DatePickerWithRange({
             {date?.from ? (
               date.to ? (
                 <>
-                  {format(date.from, "dd/MM/yyyy", { locale: vi })} -{" "}
-                  {format(date.to, "dd/MM/yyyy", { locale: vi })}
+                  {format(date.from, "LLL dd, y")} -{" "}
+                  {format(date.to, "LLL dd, y")}
                 </>
               ) : (
-                format(date.from, "dd/MM/yyyy", { locale: vi })
+                format(date.from, "LLL dd, y")
               )
             ) : (
               <span>Chọn khoảng thời gian</span>
@@ -61,7 +57,6 @@ export function DatePickerWithRange({
             selected={date}
             onSelect={onDateChange}
             numberOfMonths={2}
-            locale={vi}
           />
         </PopoverContent>
       </Popover>
