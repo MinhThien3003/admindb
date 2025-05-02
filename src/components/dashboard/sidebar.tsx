@@ -5,21 +5,17 @@ import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 import { 
   BookOpen, 
-  CircleDollarSign, 
+  TrendingUp, 
   LayoutDashboard, 
   LogOut, 
-  TrendingUp, 
   UserCheck, 
   Users, 
-  ChevronDown, 
   Tag, 
   Award,
-  Receipt,
-  CreditCard,
   UserCog,
-  Clipboard
+  Clipboard,
+  CreditCard
 } from "lucide-react";
-import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 
 const routes = [
@@ -54,6 +50,12 @@ const routes = [
         color: "text-green-500"
     },
     {
+        label: 'Transactions',
+        icon: CreditCard,
+        href: '/dashboard/transactions',
+        color: "text-indigo-500"
+    },
+    {
         label: 'Authors',
         icon: UserCheck,
         href: '/dashboard/authors',
@@ -80,7 +82,6 @@ interface SidebarProps {
 export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
-    const [isTransactionOpen, setIsTransactionOpen] = useState(false);
     const { logout } = useAuth();
 
     const handleLogout = async () => {
@@ -112,44 +113,6 @@ export function Sidebar({ className }: SidebarProps) {
                             </Link>
                         ))}
                     </div>
-                </div>
-                <div className="px-4 py-2">
-                    <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">
-                        Giao dịch
-                    </h2>
-                    <Button 
-                        variant="ghost" 
-                        className="w-full justify-between mt-1"
-                        onClick={() => setIsTransactionOpen(!isTransactionOpen)}
-                    >
-                        <div className="flex items-center">
-                            <Receipt className="mr-2 h-4 w-4 text-green-500" />
-                            <span>Quản lý giao dịch</span>
-                        </div>
-                        <ChevronDown className={cn("h-4 w-4 transition-transform", isTransactionOpen ? "rotate-180" : "")} />
-                    </Button>
-                    {isTransactionOpen && (
-                        <div className="ml-4 mt-2 space-y-1">
-                            <Link href="/dashboard/transactions">
-                                <Button 
-                                    variant={pathname === "/dashboard/transactions" ? "secondary" : "ghost"}
-                                    className="w-full justify-start"
-                                >
-                                    <CircleDollarSign className="mr-2 h-4 w-4 text-blue-500" />
-                                    Giao dịch người dùng
-                                </Button>
-                            </Link>
-                            <Link href="/dashboard/transactions/authors">
-                                <Button 
-                                    variant={pathname === "/dashboard/transactions/authors" ? "secondary" : "ghost"}
-                                    className="w-full justify-start"
-                                >
-                                    <CreditCard className="mr-2 h-4 w-4 text-purple-500" />
-                                    Doanh thu tác giả
-                                </Button>
-                            </Link>
-                        </div>
-                    )}
                 </div>
                 <div className="px-4 py-2">
                     <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">

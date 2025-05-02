@@ -6,7 +6,11 @@ export function middleware(request: NextRequest) {
   // Lấy token từ cookie (nếu có)
   const token = request.cookies.get(appConfig.auth.tokenCookieName)?.value;
   
-  const isLoggedIn = !!token;
+  // Lấy token từ Authorization header (nếu có)
+  const authHeader = request.headers.get('Authorization');
+  const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+  
+  const isLoggedIn = !!token || !!headerToken;
   const isLoginPage = request.nextUrl.pathname.startsWith('/login-page');
   const isApiRoute = request.nextUrl.pathname.startsWith('/api');
   const isProtectedApiRoute = 

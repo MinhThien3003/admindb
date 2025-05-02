@@ -17,6 +17,8 @@ const config = {
       readerRankings: '/readerRankings',
       authorRankings: '/authorRankings',
       novelRankings: '/novelRankings',
+      transactions: '/transactions',
+      tasks: '/tasks',
     }
   },
   auth: {

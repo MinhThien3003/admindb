@@ -31,141 +31,79 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-    
-    console.log('Xác thực token thành công, tiếp tục xử lý request');
-    
-    // Đọc và xử lý dữ liệu theo cách an toàn cho payload lớn
-    let requestText;
-    try {
-      requestText = await request.text();
-      console.log('Request body đã nhận (raw):', requestText.substring(0, 200) + '...');
-    } catch (error) {
-      console.error('Lỗi khi đọc dữ liệu request:', error);
-      return NextResponse.json(
-        { message: 'Không thể đọc dữ liệu yêu cầu', error: String(error) },
-        { status: 400 }
-      );
-    }
-    
+
+    // Kiểm tra header đặc biệt cho author role
+    const userRole = request.headers.get('X-User-Role');
+    const isAuthorCreation = userRole === 'author';
+
+    // Đọc dữ liệu từ request
     let userData;
-    
     try {
-      userData = JSON.parse(requestText);
-      console.log('Dữ liệu người dùng đã parse:', {
-        ...userData, 
-        password: userData.password ? '[HIDDEN]' : undefined,
-        avatar: userData.avatar ? `[Avatar: ${userData.avatar.substring(0, 20)}...]` : undefined
-      });
-    } catch (error) {
-      console.error('Lỗi khi parse dữ liệu JSON:', error);
-      return NextResponse.json(
-        { message: 'Dữ liệu không hợp lệ', error: String(error) },
-        { status: 400 }
-      );
-    }
-    
-    // Kiểm tra các trường bắt buộc
-    if (!userData.username || !userData.email || !userData.fullname || !userData.password || !userData.gender) {
-      console.error('Thiếu trường bắt buộc:', { 
-        hasUsername: !!userData.username,
-        hasEmail: !!userData.email,
-        hasFullname: !!userData.fullname,
-        hasPassword: !!userData.password,
-        hasGender: !!userData.gender
-      });
-      return NextResponse.json(
-        { message: 'Thiếu thông tin bắt buộc (username, email, fullname, password, gender)' },
-        { status: 400 }
-      );
-    }
-    
-    // Kiểm tra gender
-    if (!['Male', 'Female'].includes(userData.gender)) {
-      return NextResponse.json(
-        { message: 'Giới tính phải là "Male" hoặc "Female"' },
-        { status: 400 }
-      );
-    }
-    
-    // Kiểm tra kích thước avatar
-    if (userData.avatar && typeof userData.avatar === 'string') {
-      // Ước tính kích thước base64 (3/4 * chiều dài chuỗi)
-      const avatarSizeKB = Math.round((userData.avatar.length * 0.75) / 1024);
-      console.log(`Kích thước avatar nhận được: ~${avatarSizeKB} KB`);
+      userData = await request.json();
       
-      // Giới hạn kích thước (800KB)
-      if (avatarSizeKB > 800) {
+      // Kiểm tra forceRole cho tác giả
+      const hasForceRole = userData.forceRole === 'author';
+      
+      // Log dữ liệu người dùng với thêm thông tin về role
+      console.log('Dữ liệu người dùng mới:', {
+        ...userData,
+        password: '[HIDDEN]',
+        avatar: userData.avatar ? '[Avatar Base64]' : undefined,
+        requestedRole: userData.role,
+        forceRole: userData.forceRole,
+        headerRole: userRole
+      });
+      
+      // Kiểm tra dữ liệu bắt buộc
+      if (!userData.username || !userData.email || !userData.fullname || !userData.password || !userData.gender) {
+        console.error('Thiếu trường bắt buộc:', { 
+          hasUsername: !!userData.username,
+          hasEmail: !!userData.email,
+          hasFullname: !!userData.fullname,
+          hasPassword: !!userData.password,
+          hasGender: !!userData.gender
+        });
         return NextResponse.json(
-          { message: 'Kích thước avatar quá lớn, vui lòng giảm kích thước ảnh (<800KB)' },
-          { status: 413 }
+          { message: 'Thiếu thông tin bắt buộc (username, email, fullname, password, gender)' },
+          { status: 400 }
         );
       }
-      
-      // Nếu ảnh quá lớn (>400KB), thông báo nhưng vẫn xử lý
-      if (avatarSizeKB > 400) {
-        console.warn(`Avatar có kích thước lớn: ${avatarSizeKB}KB, có thể gây chậm`);
+
+      // Kiểm tra gender
+      if (!['Male', 'Female'].includes(userData.gender)) {
+        return NextResponse.json(
+          { message: 'Giới tính phải là "Male" hoặc "Female"' },
+          { status: 400 }
+        );
       }
-    }
-    
-    // Đảm bảo role luôn là "reader" khi tạo mới
-    userData = {
-      ...userData,
-      role: 'reader' // Luôn set role là "reader" theo yêu cầu
-    };
-    
-    console.log('Gọi createUser API với dữ liệu đã chuẩn bị');
-    
-    // Gọi hàm API để tạo người dùng mới
-    try {
+
+      // Tạo người dùng mới
+      // Nếu là tác giả (qua header hoặc forceRole), thì ghi đè role 'author'
+      if (isAuthorCreation || hasForceRole) {
+        console.log('Tạo mới tác giả với role="author"');
+        userData.role = 'author';
+      }
+      
       const newUser = await createUser(userData);
-      console.log('Tạo người dùng thành công:', newUser);
       
-      return NextResponse.json({
-        message: 'Tạo người dùng mới thành công',
-        data: newUser
-      }, { status: 201 });
-    } catch (createError) {
-      console.error('Lỗi từ hàm createUser:', createError);
-      
-      // Kiểm tra lỗi cụ thể (email hoặc username đã tồn tại)
-      const errorMessage = createError instanceof Error ? createError.message : String(createError);
-      
-      if (errorMessage.includes('email') && errorMessage.includes('exist')) {
-        return NextResponse.json(
-          { message: 'Email đã được sử dụng' },
-          { status: 409 }
-        );
+      // Nếu là tác giả, đảm bảo response trả về có role là author
+      if ((isAuthorCreation || hasForceRole) && newUser.role !== 'author') {
+        newUser.role = 'author';
       }
       
-      if (errorMessage.includes('username') && errorMessage.includes('exist')) {
-        return NextResponse.json(
-          { message: 'Tên đăng nhập đã được sử dụng' },
-          { status: 409 }
-        );
-      }
-      
-      throw createError; // Ném lỗi để xử lý ở catch bên ngoài
-    }
-  } catch (error) {
-    console.error('Lỗi khi tạo người dùng mới:', error);
-    
-    // Lấy thông tin chi tiết về lỗi
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorStack = error instanceof Error ? error.stack : 'No stack trace';
-    
-    console.error('Chi tiết lỗi:', errorMessage);
-    console.error('Stack trace:', errorStack);
-    
-    // Kiểm tra xem có phải lỗi PayloadTooLargeError không
-    if (errorMessage.includes('request entity too large')) {
+      return NextResponse.json(newUser);
+    } catch (error: unknown) {
+      console.error('Lỗi khi tạo người dùng mới:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Đã xảy ra lỗi khi tạo người dùng mới';
       return NextResponse.json(
-        { message: 'Kích thước dữ liệu quá lớn, vui lòng giảm kích thước ảnh' },
-        { status: 413 }
+        { message: errorMessage },
+        { status: 500 }
       );
     }
-    
+  } catch (error: unknown) {
+    console.error('Lỗi server khi xử lý yêu cầu tạo người dùng:', error);
     return NextResponse.json(
-      { message: 'Đã xảy ra lỗi khi tạo người dùng mới', details: errorMessage },
+      { message: 'Đã xảy ra lỗi khi xử lý yêu cầu' },
       { status: 500 }
     );
   }

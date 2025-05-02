@@ -136,20 +136,23 @@ export const useNovels = () => {
         }
         
         // Tiến hành truy vấn thông tin người dùng cho mỗi novel nếu cần
-        for (let i = 0; i < novelsData.length; i++) {
-          if (typeof novelsData[i].idUser === 'string') {
-            try {
-              const userData = await fetchUserInfo(novelsData[i].idUser);
-              if (userData) {
-                novelsData[i].idUser = userData;
+        const populatedNovels = await Promise.all(
+          novelsData.map(async (novel) => {
+            if (typeof novel.idUser === 'string' && novel.idUser) {
+              try {
+                const userData = await fetchUserInfo(novel.idUser);
+                if (userData) {
+                  return { ...novel, idUser: userData };
+                }
+              } catch (err) {
+                console.error(`Lỗi khi populate user cho novel ${novel._id}:`, err);
               }
-            } catch (err) {
-              console.error(`Lỗi khi populate user cho novel ${novelsData[i]._id}:`, err);
             }
-          }
-        }
+            return novel;
+          })
+        );
         
-        setNovels(novelsData);
+        setNovels(populatedNovels);
       }
     } catch (error) {
       console.error('Lỗi khi lấy danh sách tiểu thuyết:', error);

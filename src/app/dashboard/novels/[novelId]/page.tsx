@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BookOpen, Star, Clock, CheckCircle, Edit, ArrowLeft, Eye, Bookmark, Lock, Unlock, Plus, Pencil, Save, FileText, Hash, Type, CreditCard, BookOpenText, ImageIcon, Trash2, AlertTriangle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { format } from "date-fns"
 import {
   Table,
   TableBody,
@@ -17,7 +16,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import Image from "next/image"
-import Link from "next/link"
 import {
   Dialog,
   DialogContent,
@@ -35,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { toast } from "react-hot-toast"
 
 // Định nghĩa các keyframes animation
 const styles = `
@@ -68,11 +67,16 @@ const styles = `
 // Interface cho Novel
 interface Novel {
   _id: string;
-  idCategories: Array<{_id: string; name: string}> | string[];
+  idCategories: Array<{
+    _id: string;
+    titleCategory: string;
+  }> | string[];
   idUser: {
     _id: string;
     username: string;
-    name?: string;
+    fullname?: string;
+    email?: string;
+    role?: string;
   } | string;
   title: string;
   description: string;
@@ -104,48 +108,47 @@ interface Chapter {
 
 export default function NovelDetailsPage({ params }: { params: { novelId: string } }) {
   const router = useRouter()
-  const novelId = params.novelId;
   const [novel, setNovel] = useState<Novel | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("info")
   const [chapters, setChapters] = useState<Chapter[]>([])
   const [loadingChapters, setLoadingChapters] = useState(false)
-  
-  // State để chỉnh sửa chương
-  const [editingChapter, setEditingChapter] = useState<Chapter | null>(null)
-  const [isEditing, setIsEditing] = useState(false)
-  const [showEditDialog, setShowEditDialog] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
+  const [showAddChapterDialog, setShowAddChapterDialog] = useState(false)
+  const [showEditNovelDialog, setShowEditNovelDialog] = useState(false)
+  const [editingNovel, setEditingNovel] = useState<Novel | null>(null)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [categories, setCategories] = useState<Array<{_id: string, titleCategory: string}>>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [chapterToDelete, setChapterToDelete] = useState<Chapter | null>(null)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editingChapter, setEditingChapter] = useState<Chapter | null>(null)
+  const [currentPage, setCurrentPage] = useState(1);
+  const chaptersPerPage = 10;
+  const novelId = params.novelId;
 
   // Tải thông tin chi tiết novel từ API
-  useEffect(() => {
-    async function fetchNovelData() {
-      if (!novelId) return;
-      
+  const fetchNovelDetails = async () => {
       try {
         setLoading(true);
         const response = await fetch(`/api/novels/${novelId}`);
-        
         if (!response.ok) {
-          throw new Error(`API trả về lỗi: ${response.status}`);
+        throw new Error("Không thể lấy thông tin tiểu thuyết");
         }
-        
         const data = await response.json();
-        console.log('Novel data from API:', data);
-        
+      console.log("Novel data:", data);
         setNovel(data);
-      } catch (error) {
-        console.error('Lỗi khi tải thông tin novel:', error);
-        setError('Không thể tải thông tin novel. Vui lòng thử lại sau.');
+    } catch (err) {
+      console.error("Lỗi khi lấy thông tin tiểu thuyết:", err);
+      toast.error("Không thể lấy thông tin tiểu thuyết");
       } finally {
         setLoading(false);
       }
-    }
+  };
     
-    fetchNovelData();
+  // Gọi API lấy thông tin tiểu thuyết khi component mount
+  useEffect(() => {
+    fetchNovelDetails();
   }, [novelId]);
 
   // Tải danh sách các chương khi tab "chapters" được chọn
@@ -159,47 +162,19 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
     fetchChaptersEffect();
   }, [activeTab, novelId]);
   
-  // Tái sử dụng hàm fetchChapters
+  // Tải danh sách chương từ API
   const fetchChapters = async () => {
-    if (!novelId) return;
-    
     try {
       setLoadingChapters(true);
-      const response = await fetch(`/api/chapters?novelId=${novelId}`);
-      
+      const response = await fetch(`/api/chapters/novel/${novelId}`);
       if (!response.ok) {
-        throw new Error(`API trả về lỗi: ${response.status}`);
+        throw new Error("Không thể lấy danh sách chương");
       }
-      
       const data = await response.json();
-      console.log("Dữ liệu chapters từ API:", data);
-      
-      // Chuẩn hóa dữ liệu chapters
-      const normalizedChapters = Array.isArray(data) ? data.map(chapter => ({
-        ...chapter,
-        id: chapter._id || chapter.id,
-        isPremium: chapter.role === 'vip',
-        imageUrl: chapter.imageUrl || '',
-        view: chapter.view || 0,
-        price: chapter.price || 0,
-        createdAt: chapter.createdAt ? new Date(chapter.createdAt) : new Date(),
-        updatedAt: chapter.updatedAt ? new Date(chapter.updatedAt) : new Date()
-      })) : [];
-      
-      // API đã lọc các chương thuộc về novel hiện tại, nhưng vẫn kiểm tra thêm để đảm bảo
-      const filteredChapters = normalizedChapters.filter(chapter => 
-        chapter.idNovel === novelId || 
-        (typeof chapter.idNovel === 'object' && chapter.idNovel?._id === novelId)
-      );
-      
-      console.log(`Tìm thấy ${filteredChapters.length} chương thuộc về truyện ID: ${novelId}`);
-      
-      // Sắp xếp theo thứ tự chương
-      filteredChapters.sort((a, b) => a.order - b.order);
-      
-      setChapters(filteredChapters);
-    } catch (error) {
-      console.error("Lỗi khi tải danh sách chương:", error);
+      setChapters(data);
+    } catch (err) {
+      console.error("Lỗi khi lấy danh sách chương:", err);
+      toast.error("Không thể lấy danh sách chương");
     } finally {
       setLoadingChapters(false);
     }
@@ -239,122 +214,278 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
     }
   }
 
-  // Hàm mở dialog chỉnh sửa
-  const handleEditChapter = (chapter: Chapter) => {
-    setEditingChapter({...chapter})
-    setShowEditDialog(true)
-  }
+  // Xử lý chỉnh sửa chương
+  const handleEditChapter = async (chapterId: string, chapterData: Partial<Chapter>) => {
+    try {
+      const response = await fetch(`/api/chapters/${chapterId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(chapterData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Không thể cập nhật chương');
+      }
+
+      const updatedChapter = await response.json();
+      setChapters(chapters.map(chapter => 
+        chapter._id === chapterId ? updatedChapter : chapter
+      ));
+      setShowEditDialog(false);
+      toast.success('Cập nhật chương thành công');
+    } catch (err) {
+      console.error('Lỗi khi cập nhật chương:', err);
+      toast.error('Không thể cập nhật chương');
+    }
+  };
   
   // Hàm cập nhật trường của chương đang chỉnh sửa
-  const handleUpdateChapterField = (field: string, value: string | number | boolean) => {
-    if (editingChapter) {
+  const handleUpdateChapterField = (field: keyof Chapter, value: string | number | boolean) => {
+    if (!editingChapter) return;
       setEditingChapter({
         ...editingChapter,
         [field]: value
-      })
-    }
-  }
+    });
+  };
   
-  // Hàm lưu chương đã chỉnh sửa
+  // Xử lý lưu chương
   const handleSaveChapter = async () => {
-    if (!editingChapter || !editingChapter._id) return;
+    if (!editingChapter) return;
     
     try {
-      setIsEditing(true);
-      
-      // Chuẩn bị dữ liệu để gửi lên server
+      setIsUpdating(true);
       const chapterData = {
         title: editingChapter.title,
+        content: editingChapter.content,
         order: editingChapter.order,
-        role: editingChapter.role || (editingChapter.isPremium ? 'vip' : 'normal'),
-        price: editingChapter.isPremium ? editingChapter.price : 0,
+        role: editingChapter.role,
+        price: editingChapter.role === 'vip' ? editingChapter.price : 0,
         imageUrl: editingChapter.imageUrl,
-        content: editingChapter.content
       };
-      
-      console.log('Đang gửi dữ liệu cập nhật chương:', chapterData);
-      
-      // Gửi request PUT để cập nhật chương
-      const response = await fetch(`/api/chapters/${editingChapter._id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(chapterData)
-      });
-      
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Không thể cập nhật chương. Lỗi: ${response.status} - ${text}`);
-      }
-      
-      const updatedChapter = await response.json();
-      console.log('Đã cập nhật chương thành công:', updatedChapter);
-      
-      // Cập nhật lại danh sách chương
-      await fetchChapters();
-      
-      // Đóng dialog
-      setShowEditDialog(false);
-      setEditingChapter(null);
-      
-      // Hiển thị thông báo thành công
-      alert('Đã cập nhật chương thành công!');
-      
-    } catch (error) {
-      console.error('Lỗi khi cập nhật chương:', error);
-      alert('Không thể cập nhật chương. Vui lòng thử lại sau.');
+
+      await handleEditChapter(editingChapter._id || '', chapterData);
+    } catch (err) {
+      console.error('Lỗi khi lưu chương:', err);
+      toast.error('Không thể lưu chương');
     } finally {
-      setIsEditing(false);
+      setIsUpdating(false);
     }
   };
 
-  // Hàm mở dialog xóa chương
-  const handleDeleteChapter = (chapter: Chapter) => {
-    setChapterToDelete(chapter)
-    setShowDeleteDialog(true)
-  }
-  
-  // Hàm xác nhận xóa chương
-  const confirmDeleteChapter = async () => {
-    if (!chapterToDelete || !chapterToDelete._id) return;
-    
+  // Xử lý xóa chương
+  const handleDeleteChapter = async (chapterId: string) => {
     try {
-      setIsDeleting(true);
-      
-      console.log('Đang xóa chương có ID:', chapterToDelete._id);
-      
-      // Gửi request DELETE để xóa chương
-      const response = await fetch(`/api/chapters/${chapterToDelete._id}`, {
+      const response = await fetch(`/api/chapters/${chapterId}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         }
       });
       
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Không thể xóa chương. Lỗi: ${response.status} - ${text}`);
+        const error = await response.text();
+        throw new Error(error || 'Không thể xóa chương');
       }
       
-      console.log('Đã xóa chương thành công');
-      
-      // Cập nhật lại danh sách chương
-      await fetchChapters();
-      
-      // Đóng dialog
+      setChapters(chapters.filter(chapter => chapter._id !== chapterId));
       setShowDeleteDialog(false);
       setChapterToDelete(null);
-      
-      // Hiển thị thông báo thành công
-      alert('Đã xóa chương thành công!');
-      
-    } catch (error) {
-      console.error('Lỗi khi xóa chương:', error);
-      alert('Không thể xóa chương. Vui lòng thử lại sau.');
-    } finally {
-      setIsDeleting(false);
+      toast.success('Xóa chương thành công');
+    } catch (err) {
+      console.error('Lỗi khi xóa chương:', err);
+      toast.error('Không thể xóa chương');
     }
+  };
+
+  // Hàm mở dialog chỉnh sửa tiểu thuyết
+  const handleEditNovel = () => {
+    if (novel) {
+      setEditingNovel({...novel})
+      setShowEditNovelDialog(true)
+      fetchCategories();
+    }
+  }
+
+  // Hàm cập nhật trường của tiểu thuyết đang chỉnh sửa
+  const handleUpdateNovelField = (field: keyof Novel, value: string | number | boolean) => {
+    if (!editingNovel) return;
+    setEditingNovel({
+      ...editingNovel,
+      [field]: value
+    });
+  };
+
+  // Hàm xử lý upload ảnh
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUpdating(true);
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch(`/api/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Không thể tải lên ảnh');
+      }
+
+      const data = await response.json();
+      if (editingNovel) {
+        setEditingNovel({
+          ...editingNovel,
+          imageUrl: data.url,
+        });
+      }
+    } catch (err) {
+      console.error('Lỗi khi tải lên ảnh:', err);
+      toast.error('Không thể tải lên ảnh');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Xử lý lưu tiểu thuyết
+  const handleSaveNovel = async () => {
+    if (!editingNovel) return;
+
+    try {
+      setIsUpdating(true);
+      const response = await fetch(`/api/novels/${novelId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: editingNovel.title,
+          description: editingNovel.description,
+          status: editingNovel.status,
+          imageUrl: editingNovel.imageUrl,
+          idCategories: editingNovel.idCategories,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Không thể cập nhật tiểu thuyết. Lỗi: ${response.status}`);
+      }
+
+      const updatedNovel = await response.json();
+      setNovel(updatedNovel);
+      setShowEditNovelDialog(false);
+      toast.success('Cập nhật tiểu thuyết thành công');
+    } catch (err) {
+      console.error('Lỗi khi cập nhật tiểu thuyết:', err);
+      toast.error('Không thể cập nhật tiểu thuyết');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Xử lý thêm chương mới
+  const handleAddChapter = async (chapterData: Partial<Chapter>) => {
+    try {
+      setIsUpdating(true);
+      const response = await fetch(`/api/chapters`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          idNovel: novelId,
+          title: chapterData.title,
+          content: chapterData.content,
+          order: chapterData.order,
+          role: chapterData.role || 'normal',
+          price: chapterData.role === 'vip' ? chapterData.price : 0,
+          imageUrl: chapterData.imageUrl,
+        }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Không thể thêm chương mới');
+      }
+
+      const newChapter = await response.json();
+      setChapters([...chapters, newChapter]);
+      setShowAddChapterDialog(false);
+      toast.success('Thêm chương mới thành công');
+      
+      // Reset form
+      setEditingChapter(null);
+    } catch (err) {
+      console.error('Lỗi khi thêm chương mới:', err);
+      toast.error('Không thể thêm chương mới');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Xử lý thay đổi thể loại
+  const handleCategoryChange = (categoryId: string) => {
+    if (!editingNovel) return;
+
+    const currentCategories = editingNovel.idCategories || [];
+    const categoryExists = currentCategories.some(
+      (c) => (typeof c === 'object' ? c._id === categoryId : c === categoryId)
+    );
+
+    let newCategories: { _id: string; titleCategory: string }[] = [];
+    if (categoryExists) {
+      newCategories = currentCategories.filter(
+        (c) => (typeof c === 'object' ? c._id !== categoryId : c !== categoryId)
+      ).map(c => typeof c === 'object' ? c : { _id: c, titleCategory: '' });
+    } else {
+      const selectedCategory = categories.find(c => c._id === categoryId);
+      if (selectedCategory) {
+        newCategories = [...currentCategories.map(c => typeof c === 'object' ? c : { _id: c, titleCategory: '' }), selectedCategory];
+      }
+    }
+
+    setEditingNovel({
+      ...editingNovel,
+      idCategories: newCategories,
+    });
+  };
+
+  // Fetch categories khi component mount
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  // Hàm fetch categories
+  const fetchCategories = async () => {
+    try {
+      setLoadingCategories(true);
+      const response = await fetch(`/api/categories`);
+      if (!response.ok) {
+        throw new Error("Không thể lấy danh sách thể loại");
+      }
+      const data = await response.json();
+      setCategories(data);
+    } catch (err) {
+      console.error("Lỗi khi lấy danh sách thể loại:", err);
+      toast.error("Không thể lấy danh sách thể loại");
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
+  // Tính toán các chương cho trang hiện tại
+  const indexOfLastChapter = currentPage * chaptersPerPage;
+  const indexOfFirstChapter = indexOfLastChapter - chaptersPerPage;
+  const currentChapters = chapters.slice(indexOfFirstChapter, indexOfLastChapter);
+  const totalPages = Math.ceil(chapters.length / chaptersPerPage);
+
+  // Hàm chuyển trang
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
   };
 
   if (loading) {
@@ -365,10 +496,10 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
     )
   }
 
-  if (error || !novel) {
+  if (!novel) {
     return (
       <div className="flex flex-col justify-center items-center h-screen gap-4">
-        <p className="text-xl">{error || 'Không tìm thấy thông tin tiểu thuyết'}</p>
+        <p className="text-xl">Không tìm thấy thông tin tiểu thuyết</p>
         <Button onClick={() => router.push('/dashboard/novels')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Quay lại danh sách
@@ -378,7 +509,7 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
   }
 
   return (
-    <div className="flex-1 space-y-6 p-8 pt-6">
+    <div className="container mx-auto px-4 py-8">
       {/* Thêm style cho animations */}
       <style jsx global>{styles}</style>
       
@@ -388,15 +519,9 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
           Quay lại danh sách
         </Button>
         <div className="flex gap-2">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Thêm chương mới
-          </Button>
-          <Button variant="outline">
-            <Link href={`/dashboard/novels/${novel._id}/edit`} className="flex items-center">
+          <Button variant="outline" onClick={handleEditNovel}>
               <Edit className="mr-2 h-4 w-4" />
               Chỉnh sửa
-            </Link>
           </Button>
         </div>
       </div>
@@ -440,10 +565,15 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
                     <Bookmark className="h-5 w-5 text-purple-500 mb-1" />
                     <span className="text-sm text-muted-foreground">Tác giả</span>
                     <span className="font-bold text-center">
-                      {typeof novel.idUser === 'object' ? 
-                        (novel.idUser.name || novel.idUser.username) : 
+                      {typeof novel.idUser === 'object' && novel.idUser ? 
+                        (novel.idUser.fullname || novel.idUser.username || 'Chưa có tên') : 
                         'Chưa có tác giả'}
                     </span>
+                    {typeof novel.idUser === 'object' && novel.idUser && (
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {novel.idUser.email || ''}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -477,21 +607,33 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
                       <h3 className="text-lg font-medium">Thể loại</h3>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {novel.idCategories && Array.isArray(novel.idCategories) && novel.idCategories.length > 0 ? (
-                          novel.idCategories.map((category, index) => {
-                            // Kiểm tra cấu trúc dữ liệu thể loại
-                            const categoryName = typeof category === 'object' && category !== null
-                              ? (category.name || '') 
-                              : String(category);
+                          novel.idCategories.map((category: {_id: string, titleCategory?: string} | string) => {
+                            console.log("Category data:", category);
+                            let categoryName = '';
+                            
+                            if (typeof category === 'object' && category !== null && 'titleCategory' in category) {
+                              // Trường hợp category là object có titleCategory
+                              categoryName = category.titleCategory || '';
+                            } else if (typeof category === 'string' || (typeof category === 'object' && '_id' in category)) {
+                              // Trường hợp category là string (ID) hoặc object chỉ có _id
+                              const categoryId = typeof category === 'string' ? category : category._id;
+                              const foundCategory = categories.find(c => c._id === categoryId);
+                              categoryName = foundCategory?.titleCategory || 'Không xác định';
+                            }
                               
                             return (
                               <div 
-                                key={typeof category === 'object' && category !== null ? (category._id || index) : index}
+                                key={typeof category === 'object' ? category._id : category}
                                 className="px-3 py-1 rounded-full bg-gray-100 text-gray-800"
                               >
-                                {categoryName}
+                                {categoryName || 'Không xác định'}
                               </div>
                             );
                           })
+                        ) : loadingCategories ? (
+                          <div className="animate-pulse">
+                            <div className="h-6 w-20 bg-gray-200 rounded-full"></div>
+                          </div>
                         ) : (
                           <p className="text-muted-foreground">Chưa có thể loại nào</p>
                         )}
@@ -504,10 +646,18 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
             <TabsContent value="chapters" className="mt-4">
               <Card>
                 <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
                   <CardTitle>Danh sách chương</CardTitle>
                   <CardDescription>
-                    Tổng số: {chapters.length} chương | Premium: {chapters.filter(ch => ch.isPremium || ch.role === 'vip').length} chương
+                        Tổng số: {chapters.length} chương | Premium: {chapters.filter(ch => ch.role === 'vip').length} chương
                   </CardDescription>
+                    </div>
+                    <Button onClick={() => setShowAddChapterDialog(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Thêm chương mới
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {loadingChapters ? (
@@ -515,6 +665,7 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
                       <p>Đang tải danh sách chương...</p>
                     </div>
                   ) : chapters.length > 0 ? (
+                    <div className="space-y-4">
                     <div className="rounded-md border">
                       <Table>
                         <TableHeader>
@@ -524,18 +675,17 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
                             <TableHead>Lượt xem</TableHead>
                             <TableHead>Trạng thái</TableHead>
                             <TableHead>Giá</TableHead>
-                            <TableHead>Ngày tạo</TableHead>
                             <TableHead className="text-right">Thao tác</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {chapters.map((chapter) => (
-                            <TableRow key={chapter._id || chapter.id}>
+                            {currentChapters.map((chapter) => (
+                              <TableRow key={chapter._id}>
                               <TableCell>{chapter.order}</TableCell>
                               <TableCell className="font-medium">{chapter.title}</TableCell>
                               <TableCell>{(chapter.view || 0).toLocaleString()}</TableCell>
                               <TableCell>
-                                {chapter.isPremium || chapter.role === 'vip' ? (
+                                  {chapter.role === 'vip' ? (
                                   <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200 flex items-center gap-1">
                                     <Lock className="h-3 w-3" />
                                     Premium
@@ -548,16 +698,31 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
                                 )}
                               </TableCell>
                               <TableCell>
-                                {chapter.isPremium || chapter.role === 'vip' ? formatCurrency(chapter.price || 0) : "Miễn phí"}
+                                  {chapter.role === 'vip' ? formatCurrency(chapter.price || 0) : "Miễn phí"}
                               </TableCell>
-                              <TableCell>{format(chapter.createdAt || new Date(), "dd/MM/yyyy")}</TableCell>
                               <TableCell className="text-right">
-                                <div className="flex justify-end gap-1">
-                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditChapter(chapter)}>
+                                  <div className="flex justify-end gap-2">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-8 w-8" 
+                                      onClick={() => {
+                                        setEditingChapter(chapter);
+                                        setShowEditDialog(true);
+                                      }}
+                                    >
                                     <Pencil className="h-4 w-4" />
                                     <span className="sr-only">Chỉnh sửa chương</span>
                                   </Button>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleDeleteChapter(chapter)}>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                      onClick={() => {
+                                        setChapterToDelete(chapter);
+                                        setShowDeleteDialog(true);
+                                      }}
+                                    >
                                     <Trash2 className="h-4 w-4" />
                                     <span className="sr-only">Xóa chương</span>
                                   </Button>
@@ -567,14 +732,45 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
                           ))}
                         </TableBody>
                       </Table>
+                      </div>
+
+                      {/* Phân trang */}
+                      {totalPages > 1 && (
+                        <div className="flex items-center justify-center gap-2 py-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                          >
+                            Trước
+                          </Button>
+                          
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
+                            <Button
+                              key={pageNumber}
+                              variant={pageNumber === currentPage ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handlePageChange(pageNumber)}
+                            >
+                              {pageNumber}
+                            </Button>
+                          ))}
+                          
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                          >
+                            Sau
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="text-center py-10 border rounded-md">
                       <p className="text-muted-foreground">Chưa có chương nào</p>
-                      <Button variant="outline" className="mt-4">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Thêm chương mới
-                      </Button>
                     </div>
                   )}
                 </CardContent>
@@ -636,11 +832,8 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
                       Loại chương <span className="text-red-500">*</span>
                     </Label>
                     <Select 
-                      value={editingChapter.role || (editingChapter.isPremium ? 'vip' : 'normal')}
-                      onValueChange={(value) => {
-                        handleUpdateChapterField('role', value);
-                        handleUpdateChapterField('isPremium', value === 'vip');
-                      }}
+                      value={editingChapter.role || 'normal'}
+                      onValueChange={(value) => handleUpdateChapterField('role', value)}
                     >
                       <SelectTrigger className="bg-slate-50 border-slate-200 focus-visible:ring-primary">
                         <SelectValue placeholder="Chọn loại chương" />
@@ -662,7 +855,7 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
                     </Select>
                   </div>
                   
-                  {(editingChapter.role === 'vip' || editingChapter.isPremium) && (
+                  {editingChapter.role === 'vip' && (
                     <div className="space-y-2">
                       <Label htmlFor="price" className="text-base font-medium flex items-center gap-2">
                         <CreditCard className="h-4 w-4 text-slate-500" />
@@ -681,42 +874,26 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
                   <div className="space-y-2">
                     <Label htmlFor="imageUrl" className="text-base font-medium flex items-center gap-2">
                       <ImageIcon className="h-4 w-4 text-slate-500" />
-                      Ảnh banner
+                      URL ảnh
                     </Label>
-                    <div className="space-y-2">
                       <Input
                         id="imageUrl"
                         value={editingChapter.imageUrl || ''}
                         onChange={(e) => handleUpdateChapterField('imageUrl', e.target.value)}
                         className="bg-slate-50 border-slate-200 focus-visible:ring-primary"
-                        placeholder="URL ảnh banner"
+                      placeholder="https://example.com/image.jpg"
                       />
                       {editingChapter.imageUrl && (
                         <div className="relative h-36 w-full rounded-md overflow-hidden border border-slate-200">
                           <Image
                             src={editingChapter.imageUrl}
-                            alt="Xem trước ảnh banner"
+                          alt="Ảnh chương"
                             fill
                             className="object-cover"
                             unoptimized
                           />
                         </div>
                       )}
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 rounded-md bg-slate-50 p-4 border border-slate-100">
-                    <h3 className="text-sm font-medium text-slate-600 mb-2">Thông tin thống kê</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex items-center gap-2">
-                        <Eye className="h-4 w-4 text-blue-500" />
-                        <span className="text-sm">Lượt xem: {(editingChapter.view || 0).toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-green-500" />
-                        <span className="text-sm">Cập nhật: {editingChapter.updatedAt ? format(editingChapter.updatedAt, 'dd/MM/yyyy') : 'Chưa cập nhật'}</span>
-                      </div>
-                    </div>
                   </div>
                 </div>
                 
@@ -740,31 +917,35 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
                       required
                     />
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">Sử dụng định dạng văn bản thông thường. Hỗ trợ xuống dòng.</p>
                 </div>
               </div>
               
-              <div className="border-t border-slate-100 pt-4 text-sm text-slate-500">
-                <div className="flex items-center gap-1">
-                  <span className="text-red-500">*</span> Trường bắt buộc
+              <div className="border-t border-slate-100 pt-4">
+                <div className="flex items-center gap-4 text-sm text-slate-500">
+                  <div>ID: {editingChapter._id}</div>
+                  <div>Lượt xem: {editingChapter.view || 0}</div>
+                  <div>Ngày tạo: {editingChapter.createdAt ? new Date(editingChapter.createdAt).toLocaleDateString('vi-VN') : 'Chưa có'}</div>
+                  {editingChapter.updatedAt && (
+                    <div>Cập nhật: {new Date(editingChapter.updatedAt).toLocaleDateString('vi-VN')}</div>
+                  )}
                 </div>
               </div>
             </div>
           )}
           
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowEditDialog(false)} className="border-slate-200">
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
               Hủy
             </Button>
-            <Button onClick={handleSaveChapter} disabled={isEditing} className="gap-1">
-              {isEditing ? (
+            <Button onClick={handleSaveChapter} disabled={isUpdating}>
+              {isUpdating ? (
                 <>
-                  <div className="animate-spin h-4 w-4 border-2 border-white border-opacity-20 border-t-white rounded-full"></div>
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-opacity-20 border-t-white rounded-full mr-2"></div>
                   Đang lưu...
                 </>
               ) : (
                 <>
-                  <Save className="h-4 w-4" />
+                  <Save className="h-4 w-4 mr-2" />
                   Lưu thay đổi
                 </>
               )}
@@ -774,63 +955,358 @@ export default function NovelDetailsPage({ params }: { params: { novelId: string
       </Dialog>
 
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="sm:max-w-[450px] border-red-200 shadow-md animate-appear">
-          <DialogHeader className="border-b border-red-100 pb-3">
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2 text-red-600">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <AlertTriangle className="h-5 w-5" />
               Xác nhận xóa chương
             </DialogTitle>
-            <DialogDescription className="text-base">
-              Bạn có chắc chắn muốn xóa chương này không? Hành động này không thể hoàn tác.
+            <DialogDescription>
+              Bạn có chắc chắn muốn xóa chương này? Hành động này không thể hoàn tác.
             </DialogDescription>
           </DialogHeader>
           
           {chapterToDelete && (
             <div className="py-4">
               <div className="p-4 bg-red-50 border border-red-100 rounded-md mb-4">
-                <div className="font-medium mb-1 text-red-700">Thông tin chương sẽ bị xóa:</div>
-                <div className="text-sm space-y-1">
-                  <div><span className="font-medium">Tiêu đề:</span> {chapterToDelete.title}</div>
-                  <div><span className="font-medium">Số thứ tự:</span> {chapterToDelete.order}</div>
-                  <div>
+                <h4 className="font-medium text-red-900 mb-2">Thông tin chương sẽ bị xóa:</h4>
+                <div className="space-y-2 text-sm text-red-800">
+                  <p><span className="font-medium">ID:</span> {chapterToDelete._id}</p>
+                  <p><span className="font-medium">Tiêu đề:</span> {chapterToDelete.title}</p>
+                  <p><span className="font-medium">Số thứ tự:</span> {chapterToDelete.order}</p>
+                  <p>
                     <span className="font-medium">Loại chương:</span> 
-                    {chapterToDelete.isPremium || chapterToDelete.role === 'vip' ? ' Premium (VIP)' : ' Miễn phí'}
-                  </div>
+                    {chapterToDelete.role === 'vip' ? ' Premium (VIP)' : ' Miễn phí'}
+                  </p>
                 </div>
               </div>
               
-              <div className="text-sm text-red-600 flex items-center gap-2 bg-red-50 p-3 rounded-md">
-                <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
-                <span>Lưu ý: Thao tác này sẽ xóa vĩnh viễn chương này khỏi cơ sở dữ liệu và không thể khôi phục.</span>
+              <div className="flex items-center gap-2 p-3 bg-red-50 rounded-md text-red-800 text-sm">
+                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                <p>Lưu ý: Tất cả nội dung của chương này sẽ bị xóa vĩnh viễn và không thể khôi phục.</p>
               </div>
             </div>
           )}
           
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} className="border-slate-200">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteDialog(false);
+                setChapterToDelete(null);
+              }}
+            >
               Hủy
             </Button>
             <Button 
               variant="destructive" 
-              onClick={confirmDeleteChapter} 
-              disabled={isDeleting} 
-              className="gap-1 bg-red-600 hover:bg-red-700 text-white font-medium shadow-sm delete-button-hover"
+              onClick={() => chapterToDelete && handleDeleteChapter(chapterToDelete._id || '')}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={!chapterToDelete}
             >
-              {isDeleting ? (
+              <Trash2 className="h-4 w-4 mr-2" />
+              Xác nhận xóa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog thêm chương mới */}
+      <Dialog open={showAddChapterDialog} onOpenChange={setShowAddChapterDialog}>
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <Plus className="h-5 w-5 text-primary" />
+              Thêm chương mới
+            </DialogTitle>
+            <DialogDescription>
+              Điền thông tin chương mới. Các trường có dấu * là bắt buộc.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-6 py-4">
+            {/* Cột thông tin cơ bản */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="add-title" className="text-base font-medium flex items-center gap-2">
+                  <Type className="h-4 w-4 text-slate-500" />
+                  Tiêu đề <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="add-title"
+                  placeholder="Nhập tiêu đề chương"
+                  value={editingChapter?.title || ''}
+                  onChange={(e) => setEditingChapter(prev => ({
+                    ...prev,
+                    title: e.target.value
+                  } as Chapter))}
+                  className="bg-slate-50 border-slate-200 focus-visible:ring-primary"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="add-order" className="text-base font-medium flex items-center gap-2">
+                  <Hash className="h-4 w-4 text-slate-500" />
+                  Số thứ tự <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="add-order"
+                  type="number"
+                  placeholder="Nhập số thứ tự"
+                  value={editingChapter?.order || ''}
+                  onChange={(e) => setEditingChapter(prev => ({
+                    ...prev,
+                    order: parseInt(e.target.value) || 0
+                  } as Chapter))}
+                  className="bg-slate-50 border-slate-200 focus-visible:ring-primary"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="add-role" className="text-base font-medium flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-slate-500" />
+                  Loại chương <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={editingChapter?.role || 'normal'}
+                  onValueChange={(value) => setEditingChapter(prev => ({
+                    ...prev,
+                    role: value
+                  } as Chapter))}
+                >
+                  <SelectTrigger className="bg-slate-50 border-slate-200 focus-visible:ring-primary">
+                    <SelectValue placeholder="Chọn loại chương" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">
+                      <div className="flex items-center gap-2">
+                        <Unlock className="h-4 w-4 text-green-500" />
+                        <span>Miễn phí</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="vip">
+                      <div className="flex items-center gap-2">
+                        <Lock className="h-4 w-4 text-orange-500" />
+                        <span>Premium (VIP)</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {editingChapter?.role === 'vip' && (
+                <div className="space-y-2">
+                  <Label htmlFor="add-price" className="text-base font-medium flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-slate-500" />
+                    Giá (VND)
+                  </Label>
+                  <Input
+                    id="add-price"
+                    type="number"
+                    placeholder="Nhập giá chương"
+                    value={editingChapter?.price || 0}
+                    onChange={(e) => setEditingChapter(prev => ({
+                      ...prev,
+                      price: parseInt(e.target.value) || 0
+                    } as Chapter))}
+                    className="bg-slate-50 border-slate-200 focus-visible:ring-primary"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="add-imageUrl" className="text-base font-medium flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-slate-500" />
+                  URL ảnh
+                </Label>
+                <Input
+                  id="add-imageUrl"
+                  placeholder="https://example.com/image.jpg"
+                  value={editingChapter?.imageUrl || ''}
+                  onChange={(e) => setEditingChapter(prev => ({
+                    ...prev,
+                    imageUrl: e.target.value
+                  } as Chapter))}
+                  className="bg-slate-50 border-slate-200 focus-visible:ring-primary"
+                />
+                {editingChapter?.imageUrl && (
+                  <div className="relative h-36 w-full rounded-md overflow-hidden border border-slate-200">
+                    <Image
+                      src={editingChapter.imageUrl}
+                      alt="Ảnh chương"
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Cột nội dung */}
+            <div className="space-y-2">
+              <Label htmlFor="add-content" className="text-base font-medium flex items-center gap-2">
+                <FileText className="h-4 w-4 text-slate-500" />
+                Nội dung <span className="text-red-500">*</span>
+              </Label>
+              <div className="border border-slate-200 rounded-md overflow-hidden">
+                <div className="bg-slate-100 p-2 flex items-center gap-2 border-b border-slate-200">
+                  <BookOpenText className="h-4 w-4 text-slate-600" />
+                  <span className="text-sm font-medium text-slate-600">Trình soạn thảo</span>
+                </div>
+                <textarea
+                  id="add-content"
+                  className="w-full min-h-[380px] p-3 border-0 focus:ring-0 resize-y"
+                  placeholder="Nhập nội dung chương"
+                  value={editingChapter?.content || ''}
+                  onChange={(e) => setEditingChapter(prev => ({
+                    ...prev,
+                    content: e.target.value
+                  } as Chapter))}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowAddChapterDialog(false);
+                setEditingChapter(null);
+              }}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={() => editingChapter && handleAddChapter(editingChapter)}
+              disabled={isUpdating || !editingChapter?.title || !editingChapter?.content || !editingChapter?.order}
+            >
+              {isUpdating ? (
                 <>
-                  <div className="animate-spin h-4 w-4 border-2 border-white border-opacity-20 border-t-white rounded-full"></div>
-                  Đang xóa...
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-opacity-20 border-t-white rounded-full mr-2"></div>
+                  Đang thêm...
                 </>
               ) : (
                 <>
-                  <Trash2 className="h-4 w-4" />
-                  Xác nhận xóa
+                  <Plus className="h-4 w-4 mr-2" />
+                  Thêm chương
                 </>
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog chỉnh sửa tiểu thuyết */}
+      {showEditNovelDialog && editingNovel && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
+            <h2 className="text-xl font-bold mb-4">Chỉnh sửa tiểu thuyết</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Tiêu đề</label>
+                <input
+                  type="text"
+                  value={editingNovel.title}
+                  onChange={(e) => handleUpdateNovelField('title', e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Mô tả</label>
+                <textarea
+                  value={editingNovel.description}
+                  onChange={(e) => handleUpdateNovelField('description', e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Trạng thái</label>
+                <select
+                  value={editingNovel.status}
+                  onChange={(e) => handleUpdateNovelField('status', e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300"
+                >
+                  <option value="ongoing">Đang cập nhật</option>
+                  <option value="completed">Hoàn thành</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Ảnh bìa</label>
+                <div className="mt-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="mt-1 block w-full rounded-md border-gray-300"
+                  />
+                  {isUpdating && (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500 mx-auto mt-2"></div>
+                  )}
+                </div>
+                {editingNovel.imageUrl && (
+                  <div className="mt-2">
+                    <Image
+                      src={editingNovel.imageUrl}
+                      alt="Xem trước ảnh bìa"
+                      width={200}
+                      height={200}
+                      className="mt-2 rounded-md"
+                    />
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Thể loại</label>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {loadingCategories ? (
+                    <div className="col-span-2 text-center py-2">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500 mx-auto"></div>
+                    </div>
+                  ) : (
+                    categories.map((category) => (
+                      <div
+                        key={category._id}
+                        onClick={() => handleCategoryChange(category._id)}
+                        className={`p-2 rounded cursor-pointer text-sm ${
+                          editingNovel.idCategories?.some((c) => 
+                            typeof c === 'object' ? c._id === category._id : c === category._id
+                          )
+                            ? "bg-indigo-100 text-indigo-700 border-2 border-indigo-500"
+                            : "bg-gray-100 hover:bg-gray-200 border-2 border-transparent"
+                        }`}
+                      >
+                        {category.titleCategory}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2 mt-4">
+                <button
+                  onClick={() => setShowEditNovelDialog(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleSaveNovel}
+                  disabled={isUpdating}
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {isUpdating ? "Đang lưu..." : "Lưu thay đổi"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 

@@ -132,12 +132,23 @@ export async function createUser(userData: UserData) {
       throw new Error('Giới tính phải là "Male" hoặc "Female"');
     }
 
-    // Đảm bảo role luôn là "reader" khi tạo mới và thêm idReaderExp nếu chưa có
+    // Lưu lại role ban đầu
+    const originalRole = userData.role;
+    const isAuthorRole = originalRole === 'author';
+
+    // Đảm bảo role là "reader" nếu không phải author, và thêm idReaderExp nếu chưa có
     userData = {
       ...userData,
-      role: 'reader', // Luôn set role là "reader" theo yêu cầu
+      role: isAuthorRole ? 'author' : 'reader', // Giữ nguyên role author nếu đã có
       idReaderExp: userData.idReaderExp || null // Thêm trường idReaderExp nếu chưa có
     };
+
+    // Thêm log để debug role
+    console.log('Role trước khi gửi API:', {
+      originalRole,
+      isAuthorRole,
+      finalRole: userData.role
+    });
 
     // Ghi log dữ liệu (loại bỏ avatar và password nếu quá dài để tránh spam log)
     const logData = { ...userData };

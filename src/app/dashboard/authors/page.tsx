@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React from "react"
+import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Search, Pencil, DollarSign, Eye, Download, Plus, Bell, Upload, EyeOff, Trash2 } from "lucide-react"
+import { Search, Pencil, DollarSign, Eye, Download, Bell, Upload, EyeOff, Trash2 } from "lucide-react"
 import { format } from "date-fns"
 import { Pagination } from "@/components/ui/pagination"
 import { Badge } from "@/components/ui/badge"
@@ -36,31 +37,50 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import axios from "axios"
-import { User } from "@/types/user"
+import { Author } from "@/types/author"
 import Link from "next/link"
 import { toast } from "sonner"
-import { updateUser } from '@/lib/api/users'
 
-interface User {
-  _id: string;
-  fullname?: string;
-  email: string;
-  username: string;
-  password?: string;
-  gender: 'Male' | 'Female';
-  status: 'active' | 'inactive' | 'banned';
-  role: 'reader' | 'author';
-  avatar?: string;
-  bio?: string;
-  totalViews?: number;
-  totalEarnings?: number;
-  createdAt: string;
-  updatedAt: string;
+// Interface cho form data
+interface AuthorFormData {
+  fullname: string
+  email: string
+  username: string
+  password: string
+  gender: 'Male' | 'Female'
+  status: 'active' | 'inactive' | 'banned'
+  bio?: string
+  avatar?: string
+  role: 'author'
+  level: string
+  experiencePoints: number
+}
+
+// Interface cho dữ liệu gửi đi API
+interface AuthorApiData {
+  fullname: string
+  email: string
+  username: string
+  password?: string
+  gender: 'Male' | 'Female'
+  status: 'active' | 'inactive' | 'banned'
+  bio?: string
+  avatar?: string
+  role: 'author'
+  level: string
+  experiencePoints: number
+}
+
+// Type cho dữ liệu cập nhật
+type AuthorUpdateData = Partial<Omit<AuthorApiData, 'role'>> & { role: 'author' }
+
+interface UploadResponse {
+  url: string;
 }
 
 export default function AuthorsPage() {
-  const [users, setUsers] = useState<User[]>([])
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
+  const [users, setUsers] = useState<Author[]>([])
+  const [filteredUsers, setFilteredUsers] = useState<Author[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [genderFilter, setGenderFilter] = useState<string>("all")
@@ -70,16 +90,19 @@ export default function AuthorsPage() {
   const [pendingCount, setPendingCount] = useState(0)
   const ITEMS_PER_PAGE = 10
   const [showEditDialog, setShowEditDialog] = useState(false)
-  const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [editFormData, setEditFormData] = useState({
+  const [editingUser, setEditingUser] = useState<Author | null>(null)
+  const [editFormData, setEditFormData] = useState<AuthorFormData>({
     fullname: '',
     email: '',
     username: '',
     password: '',
-    gender: 'Male' as 'Male' | 'Female',
-    status: 'active' as 'active' | 'inactive' | 'banned',
+    gender: 'Male',
+    status: 'active',
     bio: '',
-    avatar: '' as string
+    avatar: '',
+    role: 'author',
+    level: 'Junior',
+    experiencePoints: 0
   })
   const [avatarPreview, setAvatarPreview] = useState<string>("")
   const [showPassword, setShowPassword] = useState(false)
@@ -99,7 +122,7 @@ export default function AuthorsPage() {
       }
 
       // Kiểm tra từng item trong mảng
-      const validUsers = response.data.filter(user => {
+      const validUsers = response.data.filter((user: Author) => {
         if (!user._id || !user.username) {
           console.warn('User thiếu thông tin cần thiết:', user)
           return false
@@ -205,7 +228,7 @@ export default function AuthorsPage() {
     const statusMap: Record<string, { color: string, label: string }> = {
       'active': { color: 'bg-green-100 text-green-800', label: 'Hoạt động' },
       'inactive': { color: 'bg-gray-100 text-gray-800', label: 'Không hoạt động' },
-      'banned': { color: 'bg-red-100 text-red-800', label: 'Đã khóa' }
+      'banned': { color: 'bg-red-100 text-red-800', label: 'Bị cấm' }
     }
     
     const { color, label } = statusMap[status] || statusMap.inactive
@@ -243,54 +266,132 @@ export default function AuthorsPage() {
     return new Intl.NumberFormat('vi-VN').format(views)
   }
 
-  const handleEditUser = (user: User) => {
+  const handleEditUser = (user: Author) => {
     setEditingUser(user)
     setEditFormData({
       fullname: user.fullname || '',
       email: user.email || '',
       username: user.username || '',
-      password: user.password || '',
+      password: '',
       gender: user.gender || 'Male',
       status: user.status || 'active',
       bio: user.bio || '',
-      avatar: user.avatar || ''
+      avatar: user.avatar || '',
+      role: 'author',
+      level: user.level || 'Junior',
+      experiencePoints: user.experiencePoints || 0
     })
     setAvatarPreview(user.avatar || '')
     setShowPassword(false)
     setShowEditDialog(true)
   }
 
+  // Thêm hàm nén ảnh
+  const compressImage = (file: File, maxWidth = 400, maxHeight = 400, quality = 0.7): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Tính toán kích thước mới
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Không thể tạo canvas context'));
+            return;
+          }
+          
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Chuyển đổi sang base64 với chất lượng đã chỉ định
+          const base64 = canvas.toDataURL('image/jpeg', quality);
+          resolve(base64);
+        };
+        
+        img.onerror = (error) => {
+          reject(error);
+        };
+      };
+      
+      reader.onerror = (error) => {
+        reject(error);
+      };
+      
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Hàm xử lý khi thay đổi avatar
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     
     // Kiểm tra loại file và kích thước
     if (!file.type.startsWith('image/')) {
-      toast.error("Vui lòng tải lên file hình ảnh")
-      return
+      toast.error('Vui lòng tải lên file hình ảnh');
+      return;
     }
     
     // Kiểm tra các loại hình ảnh được chấp nhận
-    const acceptedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    const acceptedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!acceptedTypes.includes(file.type)) {
-      toast.error("Chỉ chấp nhận các định dạng: JPG, PNG, GIF, WEBP")
-      return
+      toast.error('Chỉ chấp nhận các định dạng: JPG, PNG, GIF, WEBP');
+      return;
     }
     
-    // Kích thước tối đa (5MB)
-    const maxSizeInBytes = 5 * 1024 * 1024
+    // Kích thước tối đa (2MB)
+    const maxSizeInBytes = 2 * 1024 * 1024;
     if (file.size > maxSizeInBytes) {
-      toast.error("Kích thước hình ảnh không được vượt quá 5MB")
-      return
+      toast.error('Kích thước hình ảnh không được vượt quá 2MB, hệ thống sẽ tự động nén ảnh');
+      compressImage(file)
+        .then(compressedBase64 => {
+          setAvatarPreview(compressedBase64);
+          console.log('Avatar đã được nén và mã hóa thành base64');
+        })
+        .catch(error => {
+          console.error('Lỗi khi nén ảnh:', error);
+          toast.error('Không thể nén ảnh, vui lòng chọn ảnh nhỏ hơn');
+        });
+      return;
     }
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        setAvatarPreview(e.target.result as string)
-      }
-    }
-    reader.readAsDataURL(file)
+    
+    // Nén ảnh để đảm bảo kích thước nhỏ
+    compressImage(file)
+      .then(compressedBase64 => {
+        setAvatarPreview(compressedBase64);
+        console.log('Avatar đã được nén và mã hóa thành base64');
+      })
+      .catch(error => {
+        console.error('Lỗi khi nén ảnh:', error);
+        // Fallback to traditional method if compression fails
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64Data = reader.result as string;
+          setAvatarPreview(base64Data);
+          console.log('Avatar đã được mã hóa thành base64 (không nén)');
+        };
+        reader.readAsDataURL(file);
+      });
   }
 
   const handleEditFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -298,14 +399,20 @@ export default function AuthorsPage() {
     if (!editingUser) return;
 
     try {
+      setIsLoading(true);
+      toast.loading("Đang cập nhật thông tin tác giả...");
+
       // Chuẩn bị dữ liệu cập nhật
-      const updateData: Partial<User> = {
+      const updateData: AuthorUpdateData = {
         fullname: editFormData.fullname,
         email: editFormData.email,
         username: editFormData.username,
         gender: editFormData.gender,
         status: editFormData.status,
-        role: 'author' // Giữ nguyên role là author
+        bio: editFormData.bio,
+        role: 'author',
+        level: editFormData.level,
+        experiencePoints: editFormData.experiencePoints
       };
 
       // Chỉ thêm password nếu có thay đổi
@@ -313,27 +420,99 @@ export default function AuthorsPage() {
         updateData.password = editFormData.password;
       }
 
-      // Chỉ thêm avatar nếu có thay đổi
+      // Xử lý avatar nếu có thay đổi
       if (avatarPreview && avatarPreview !== editingUser.avatar) {
-        updateData.avatar = avatarPreview;
+        try {
+          // Kiểm tra kích thước base64 trước khi upload
+          const base64Size = Math.round((avatarPreview.length * 0.75) / 1024); // KB
+          console.log('Kích thước avatar base64 khi edit:', base64Size, 'KB');
+          
+          if (base64Size > 800) {
+            toast.dismiss();
+            toast.error(`Ảnh quá lớn (${base64Size} KB). Vui lòng sử dụng ảnh nhỏ hơn.`);
+            setIsLoading(false);
+            return;
+          }
+
+          // Tạo FormData và thêm file
+          console.log('Bắt đầu upload avatar cho edit...');
+          const formData = new FormData();
+          const blob = await fetch(avatarPreview).then(r => r.blob());
+          console.log('Đã tạo blob từ base64 (edit), kích thước:', blob.size, 'bytes, type:', blob.type);
+          
+          // Quan trọng: API yêu cầu field name phải là 'image' chứ không phải 'avatar'
+          formData.append('image', blob, 'avatar.jpg');
+          
+          // Log ra tất cả các entries trong FormData
+          console.log('FormData entries cho edit:');
+          for (const pair of formData.entries()) {
+            console.log(pair[0], pair[1]);
+          }
+
+          // Upload ảnh
+          console.log('Gọi API upload với endpoint: /api/upload (edit)');
+          const uploadResponse = await axios.post<UploadResponse>('/api/upload', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            },
+            timeout: 30000 // 30 giây
+          });
+
+          console.log('Response từ API upload (edit):', uploadResponse.status, uploadResponse.data);
+          updateData.avatar = uploadResponse.data.url;
+          console.log('Avatar đã được upload thành công (edit), URL:', updateData.avatar);
+        } catch (error) {
+          console.error('Lỗi chi tiết khi upload avatar (edit):', error);
+          if (axios.isAxiosError(error)) {
+            console.error('Axios error status (edit):', error.response?.status);
+            console.error('Axios error data (edit):', error.response?.data);
+          }
+          toast.dismiss();
+          toast.error('Không thể upload avatar. Vui lòng thử lại.');
+          setIsLoading(false);
+          return;
+        }
       }
 
-      try {
-        const response = await updateUser(editingUser._id, updateData);
-        if (response) {
-          toast.success('Cập nhật thông tin tác giả thành công');
-          setUsers(users.map(user => 
-            user._id === editingUser._id ? { ...user, ...response } : user
-          ));
-          setShowEditDialog(false);
+      // Lấy token từ sessionStorage
+      const token = sessionStorage.getItem('admin_token');
+      if (!token) {
+        toast.dismiss();
+        toast.error('Không tìm thấy token xác thực, vui lòng đăng nhập lại');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+        return;
+      }
+
+      // Gọi API cập nhật
+      const response = await axios.put(`/api/users/${editingUser._id}`, updateData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      } catch (error) {
-        console.error('Lỗi khi cập nhật tác giả:', error);
-        toast.error(error instanceof Error ? error.message : 'Có lỗi xảy ra khi cập nhật thông tin tác giả');
+      });
+
+      if (response.data) {
+        toast.dismiss();
+        toast.success('Cập nhật thông tin tác giả thành công');
+        
+        // Cập nhật state
+        setUsers(prevUsers => prevUsers.map(user => 
+          user._id === editingUser._id ? { ...user, ...response.data } : user
+        ));
+        setFilteredUsers(prevUsers => prevUsers.map(user => 
+          user._id === editingUser._id ? { ...user, ...response.data } : user
+        ));
+        
+        setShowEditDialog(false);
       }
     } catch (error) {
-      console.error('Lỗi khi xử lý form:', error);
+      toast.dismiss();
+      console.error('Lỗi khi cập nhật tác giả:', error);
       toast.error(error instanceof Error ? error.message : 'Có lỗi xảy ra khi cập nhật thông tin tác giả');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -360,36 +539,35 @@ export default function AuthorsPage() {
         }
       });
 
-      // Đọc response dưới dạng text trước
-      const responseText = await response.text();
-      console.log(`Phản hồi từ API (status: ${response.status}):`, responseText);
-
-      // Parse JSON nếu có thể
-      let responseData = null;
-      try {
-        if (responseText && responseText.trim() !== '') {
-          responseData = JSON.parse(responseText);
-          console.log('Dữ liệu đã parse:', responseData);
-        }
-      } catch (e) {
-        console.error('Không thể parse JSON từ response:', e);
+      // Kiểm tra status code trước
+      if (response.status === 401) {
+        toast.error('Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+        return;
       }
 
+      // Nếu status code là 200 hoặc 204, xem như thành công
       if (response.ok) {
         toast.success('Xóa tác giả thành công');
-        // Cập nhật lại danh sách
-        setUsers(users.filter(user => user._id !== userId));
-      } else {
-        // Xử lý các loại lỗi
-        if (response.status === 401) {
-          toast.error('Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.');
-          setTimeout(() => {
-            window.location.href = '/login';
-          }, 2000);
-        } else {
-          const errorMessage = responseData?.message || 'Không thể xóa tác giả';
-          toast.error(errorMessage);
+        // Cập nhật lại danh sách ngay lập tức
+        setUsers(prevUsers => prevUsers.filter(user => user._id !== userId));
+        setFilteredUsers(prevUsers => prevUsers.filter(user => user._id !== userId));
+        return;
+      }
+
+      // Nếu có response body, thử parse và hiển thị thông báo lỗi
+      const responseText = await response.text();
+      if (responseText) {
+        try {
+          const responseData = JSON.parse(responseText);
+          toast.error(responseData.message || 'Không thể xóa tác giả');
+        } catch {
+          toast.error('Không thể xóa tác giả');
         }
+      } else {
+        toast.error('Không thể xóa tác giả');
       }
     } catch (error) {
       console.error('Lỗi khi xóa tác giả:', error);
@@ -416,10 +594,6 @@ export default function AuthorsPage() {
           <Button variant="outline" className="h-9">
             <Download className="w-4 h-4 mr-2" />
             Xuất CSV
-          </Button>
-          <Button className="h-9">
-            <Plus className="w-4 h-4 mr-2" />
-            Thêm tác giả
           </Button>
         </div>
       </div>
@@ -475,7 +649,6 @@ export default function AuthorsPage() {
                 <SelectItem value="all">Tất cả trạng thái</SelectItem>
                 <SelectItem value="active">Hoạt động</SelectItem>
                 <SelectItem value="inactive">Không hoạt động</SelectItem>
-                <SelectItem value="banned">Đã khóa</SelectItem>
               </SelectContent>
             </Select>
             <Select value={genderFilter} onValueChange={setGenderFilter}>
@@ -753,7 +926,7 @@ export default function AuthorsPage() {
                   value={editFormData.status} 
                   onValueChange={(value) => setEditFormData(prev => ({
                     ...prev, 
-                    status: value as "active" | "inactive" | "banned"
+                    status: value as "active" | "inactive"
                   }))}
                 >
                   <SelectTrigger id="edit-status">
@@ -762,7 +935,6 @@ export default function AuthorsPage() {
                   <SelectContent>
                     <SelectItem value="active">Hoạt động</SelectItem>
                     <SelectItem value="inactive">Không hoạt động</SelectItem>
-                    <SelectItem value="banned">Đã khóa</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

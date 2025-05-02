@@ -11,195 +11,42 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Search, Trash2, Plus, Edit, Eye, MoreHorizontal, BookOpen, Clock, CheckCircle, XCircle } from "lucide-react"
+import { Search, Trash2, Eye, BookOpen } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Star } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useNovels } from "@/hooks/use-novels"
 import { useAuth } from "@/hooks/use-auth"
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
-// Định nghĩa enum cho trạng thái truyện
-export enum NovelStatus {
-  ONGOING = "ongoing",
-  COMPLETED = "completed",
-  DROPPED = "dropped"
-}
-
-// Định nghĩa interface cho Rating
-interface Rating {
-  userId: number;
-  username: string;
-  stars: number; // 1-5 sao
-  comment?: string;
-  createdAt: string;
-}
-
-// Định nghĩa interface cho Chapter
-interface Chapter {
-  title: string;
-  content: string;
-  price?: number;
-  isPremium?: boolean;
-  ratings?: Rating[]; // Thêm mảng đánh giá cho mỗi chương
-}
+import { toast } from "sonner"
 
 // Định nghĩa interface cho Novel
-/* eslint-disable @typescript-eslint/no-unused-vars */
 interface Novel {
-  _id?: string;
-  id?: number;
-  idCategories?: Array<{_id: string; name: string}> | string[];
-  idUser?: {
+  _id: string;
+  idCategories: Array<{_id: string; titleCategory: string}> | string[];
+  idUser: {
     _id: string;
     username: string;
     name?: string;
   } | string;
   title: string;
-  image?: string;
-  imageUrl?: string;
-  categories?: string[];
-  chapters?: Chapter[];
-  views?: number;
-  view?: number;
+  description: string;
+  view: number;
+  imageUrl: string;
+  rate: number;
+  status: "ongoing" | "completed";
   createdAt: string;
   updatedAt?: string;
-  description: string;
-  averageRating?: number; // Điểm trung bình của truyện
-  rate?: number;
-  totalRatings?: number; // Tổng số lượt đánh giá
-  status: NovelStatus | string; // Trạng thái truyện
 }
-/* eslint-enable @typescript-eslint/no-unused-vars */
-
-// Hàm tính điểm trung bình của một chương (giữ lại nhưng đánh dấu là đã sử dụng)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const calculateChapterRating = (ratings: Rating[] = []) => {
-  if (ratings.length === 0) return 0;
-  const totalStars = ratings.reduce((sum, rating) => sum + rating.stars, 0);
-  return parseFloat((totalStars / ratings.length).toFixed(1));
-};
-
-// Hàm tính điểm trung bình của một truyện (giữ lại nhưng đánh dấu là đã sử dụng)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const calculateNovelRating = (chapters: Chapter[] = []) => {
-  let totalStars = 0;
-  let totalRatings = 0;
-  
-  chapters.forEach(chapter => {
-    if (chapter.ratings && chapter.ratings.length > 0) {
-      totalStars += chapter.ratings.reduce((sum, rating) => sum + rating.stars, 0);
-      totalRatings += chapter.ratings.length;
-    }
-  });
-  
-  if (totalRatings === 0) return 0;
-  return parseFloat((totalStars / totalRatings).toFixed(1));
-};
-
-// Hàm chuyển đổi số sao sang điểm (5 sao = 10 điểm)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const starsToPoints = (stars: number) => {
-  return (stars / 5) * 10;
-};
-
-// Hàm tạo mảng sao dựa trên điểm đánh giá
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const renderStars = (rating: number) => {
-  const stars = [];
-  const fullStars = Math.floor(rating);
-  const hasHalfStar = rating % 1 >= 0.5;
-
-  for (let i = 0; i < fullStars; i++) {
-    stars.push(<Star key={`full-${i}`} className="h-4 w-4 fill-yellow-400 text-yellow-400" />);
-  }
-
-  if (hasHalfStar) {
-    stars.push(<Star key="half" className="h-4 w-4 fill-yellow-400 text-yellow-400 fill-half" />);
-  }
-
-  const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
-  for (let i = 0; i < emptyStars; i++) {
-    stars.push(<Star key={`empty-${i}`} className="h-4 w-4 text-gray-300" />);
-  }
-
-  return stars;
-};
-
-// Hàm hiển thị trạng thái truyện
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const renderNovelStatus = (status: NovelStatus) => {
-  switch (status) {
-    case NovelStatus.ONGOING:
-      return (
-        <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
-          <Clock className="h-3 w-3 mr-1" />
-          Đang tiến hành
-        </Badge>
-      );
-    case NovelStatus.COMPLETED:
-      return (
-        <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
-          <CheckCircle className="h-3 w-3 mr-1" />
-          Hoàn thành
-        </Badge>
-      );
-    case NovelStatus.DROPPED:
-      return (
-        <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200">
-          <XCircle className="h-3 w-3 mr-1" />
-          Đã drop
-        </Badge>
-      );
-    default:
-      return null;
-  }
-};
-
-// Danh sách thể loại mẫu để sử dụng với NovelEditDialog
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const novelCategories = [
-  "Tiên Hiệp",
-  "Kiếm Hiệp",
-  "Ngôn Tình",
-  "Đô Thị",
-  "Huyền Huyễn",
-  "Dị Giới",
-  "Khoa Huyễn",
-  "Kỳ Ảo",
-  "Võng Du",
-  "Lịch Sử",
-  "Quân Sự",
-  "Trinh Thám",
-  "Xuyên Không",
-  "Trọng Sinh",
-  "Mạt Thế",
-  "Cổ Đại",
-  "Hiện Đại",
-  "Huyền Nghi"
-]
 
 export default function NovelsPage() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { novels, fetchNovels, isLoading, addNovel, updateNovel, deleteNovel } = useNovels()
+  const { novels, fetchNovels, isLoading, deleteNovel } = useNovels()
   const { user } = useAuth()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [showNovelAddDialog, setShowNovelAddDialog] = useState(false)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [showNovelEditDialog, setShowNovelEditDialog] = useState(false)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [selectedNovel, setSelectedNovel] = useState<Novel | null>(null)
-  const itemsPerPage = 5
+  const itemsPerPage = 10
 
   // Lấy danh sách tiểu thuyết khi trang được tải
   useEffect(() => {
@@ -225,13 +72,6 @@ export default function NovelsPage() {
     currentPage * itemsPerPage
   );
 
-  // Hàm xử lý xóa tiểu thuyết
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa tiểu thuyết này?')) {
-      await deleteNovel(id);
-    }
-  };
-
   // Format trạng thái
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -245,13 +85,29 @@ export default function NovelsPage() {
   };
 
   // Format đánh giá sao
-  const formatRating = (rate: number) => {
+  const formatRating = (rate: number | undefined) => {
+    const rating = rate || 0;
     return (
       <div className="flex items-center justify-end w-full">
         <Star className="h-4 w-4 text-yellow-400 mr-1" />
-        <span>{rate.toFixed(1)}</span>
+        <span>{rating.toFixed(1)}</span>
       </div>
     );
+  };
+
+  // Hàm xử lý xóa tiểu thuyết
+  const handleDelete = async (id: string) => {
+    try {
+      if (window.confirm('Bạn có chắc chắn muốn xóa tiểu thuyết này?')) {
+        const success = await deleteNovel(id);
+        if (!success) {
+          toast.error('Không thể xóa tiểu thuyết. Vui lòng thử lại sau.');
+        }
+      }
+    } catch (error) {
+      console.error('Lỗi khi xóa tiểu thuyết:', error);
+      toast.error('Đã xảy ra lỗi khi xóa tiểu thuyết');
+    }
   };
 
   if (isLoading) {
@@ -263,19 +119,14 @@ export default function NovelsPage() {
   }
 
   return (
-    <div className="flex-1 space-y-4 p-8 pt-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold tracking-tight">Quản lý tiểu thuyết</h2>
-        <Button>
-          <Link href="/dashboard/novels/add" className="flex items-center">
-            <Plus className="mr-2 h-4 w-4" />
-            Thêm tiểu thuyết
-          </Link>
-        </Button>
+    <div className="flex-1">
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold tracking-tight">Danh sách tiểu thuyết</h2>
       </div>
 
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-        <Card>
+        <div className="grid gap-4 md:gap-8 grid-cols-1 md:grid-cols-3">
+          <Card className="col-span-1">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Tổng số tiểu thuyết</CardTitle>
             <BookOpen className="h-4 w-4 text-muted-foreground" />
@@ -284,7 +135,7 @@ export default function NovelsPage() {
             <div className="text-2xl font-bold">{Array.isArray(novels) ? novels.length : 0}</div>
           </CardContent>
         </Card>
-        <Card>
+          <Card className="col-span-1">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Đang cập nhật</CardTitle>
             <BookOpen className="h-4 w-4 text-blue-500" />
@@ -295,7 +146,7 @@ export default function NovelsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+          <Card className="col-span-1">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Hoàn thành</CardTitle>
             <BookOpen className="h-4 w-4 text-green-500" />
@@ -309,69 +160,71 @@ export default function NovelsPage() {
       </div>
 
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="relative w-full max-w-sm">
+          <Card>
+            <CardContent className="p-0">
+              <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 p-4 md:p-6">
+                <div className="flex-1 w-full md:w-auto md:max-w-[440px]">
+                  <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
               placeholder="Tìm kiếm tiểu thuyết..."
-              className="pl-8"
+                      className="pl-8 w-full"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="flex gap-2">
+                </div>
+                <div>
             <select 
-              className="border rounded px-3 py-1"
+                    className="w-full md:w-[180px] h-10 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
-              <option value="all">Tất cả</option>
+                    <option value="all">Tất cả trạng thái</option>
               <option value="ongoing">Đang cập nhật</option>
               <option value="completed">Hoàn thành</option>
             </select>
           </div>
         </div>
-
-        <div className="rounded-md border">
+              <div className="relative w-full overflow-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Tiểu thuyết</TableHead>
-                <TableHead>Tác giả</TableHead>
-                <TableHead>Trạng thái</TableHead>
-                <TableHead className="text-right">Lượt xem</TableHead>
-                <TableHead className="text-right">Đánh giá</TableHead>
-                <TableHead className="text-right">Thao tác</TableHead>
+                      <TableHead className="min-w-[400px]">Tiểu thuyết</TableHead>
+                      <TableHead className="min-w-[150px]">Tác giả</TableHead>
+                      <TableHead className="min-w-[120px]">Trạng thái</TableHead>
+                      <TableHead className="text-right min-w-[100px]">Lượt xem</TableHead>
+                      <TableHead className="text-right min-w-[100px]">Đánh giá</TableHead>
+                      <TableHead className="text-right min-w-[100px]">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedNovels && Array.isArray(paginatedNovels) && paginatedNovels.filter(novel => novel != null).map((novel) => (
                 <TableRow key={novel._id || Math.random().toString()}>
                   <TableCell className="font-medium">
-                    <div className="flex items-center space-x-3">
-                      <div className="relative h-12 w-10 overflow-hidden rounded">
+                          <div className="flex items-center space-x-4">
+                            <div className="relative h-20 w-14 overflow-hidden rounded-md">
                         {novel.imageUrl && (
                           <Image
                             src={novel.imageUrl}
                             alt={novel.title}
-                            width={40}
-                            height={48}
+                                  fill
                             className="object-cover"
                             unoptimized
                           />
                         )}
                       </div>
-                      <div>
-                        <div className="font-medium">{novel.title}</div>
-                        <div className="text-sm text-muted-foreground truncate max-w-xs">
-                          {novel.description?.substring(0, 50) || ''}...
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">{novel.title}</div>
+                              <div className="text-sm text-muted-foreground line-clamp-2">
+                                {novel.description || ''}
                         </div>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    {typeof novel.idUser === 'object' ? 
+                          {typeof novel.idUser === 'object' && novel.idUser ? 
                       (novel.idUser.name || novel.idUser.username) : 
                       'Chưa có tác giả'
                     }
@@ -379,43 +232,40 @@ export default function NovelsPage() {
                   <TableCell>{getStatusBadge(novel.status)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end">
-                      {novel.view ? novel.view.toLocaleString() : 0}
+                            {(novel.view || 0).toLocaleString()}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">{novel.rate ? formatRating(novel.rate) : formatRating(0)}</TableCell>
+                        <TableCell className="text-right">{formatRating(novel.rate)}</TableCell>
                   <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Mở menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
+                          <div className="flex justify-end gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              asChild
+                            >
+                              <Link href={`/dashboard/novels/${novel._id}`}>
+                                <Eye className="h-4 w-4" />
+                                <span className="sr-only">Xem chi tiết</span>
+                              </Link>
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => handleDelete(novel._id)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">Xóa</span>
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Link href={`/dashboard/novels/${novel._id}`} className="flex items-center">
-                            <Eye className="mr-2 h-4 w-4" />
-                            <span>Chi tiết</span>
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Link href={`/dashboard/novels/${novel._id}/edit`} className="flex items-center">
-                            <Edit className="mr-2 h-4 w-4" />
-                            <span>Chỉnh sửa</span>
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(novel._id)}>
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          <span>Xóa</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
+            </CardContent>
+          </Card>
 
         {/* Phân trang */}
         {totalPages > 1 && (
@@ -450,6 +300,7 @@ export default function NovelsPage() {
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

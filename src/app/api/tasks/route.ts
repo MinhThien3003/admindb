@@ -1,64 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth';
+import config from '@/lib/config';
 
-// Dữ liệu mẫu cho các task
-const mockTasks = [
-  {
-    id: "task-1",
-    title: "Sửa lỗi đăng nhập trên trang web",
-    description: "Người dùng báo cáo không thể đăng nhập trên iOS Safari. Cần kiểm tra và khắc phục lỗi này.",
-    status: "in-progress",
-    priority: "high",
-    dueDate: new Date(2023, 11, 25),
-    assignedTo: "Nguyễn Văn A",
-    createdAt: new Date(2023, 11, 20),
-    updatedAt: new Date(2023, 11, 21),
-  },
-  {
-    id: "task-2",
-    title: "Thêm tính năng đánh giá sao cho truyện",
-    description: "Phát triển tính năng cho phép người dùng đánh giá truyện bằng sao (1-5 sao).",
-    status: "pending",
-    priority: "medium",
-    dueDate: new Date(2023, 11, 28),
-    assignedTo: "Trần Thị B",
-    createdAt: new Date(2023, 11, 19),
-    updatedAt: new Date(2023, 11, 19),
-  },
-  {
-    id: "task-3",
-    title: "Tối ưu hóa thời gian tải trang chủ",
-    description: "Cải thiện hiệu suất trang chủ, giảm thời gian tải xuống dưới 2 giây.",
-    status: "completed",
-    priority: "high",
-    dueDate: new Date(2023, 11, 15),
-    assignedTo: "Lê Văn C",
-    createdAt: new Date(2023, 11, 10),
-    updatedAt: new Date(2023, 11, 14),
-  },
-  {
-    id: "task-4",
-    title: "Cập nhật giao diện trang cá nhân",
-    description: "Thiết kế lại trang cá nhân của người dùng theo mẫu mới đã được phê duyệt.",
-    status: "pending",
-    priority: "low",
-    dueDate: new Date(2023, 11, 30),
-    assignedTo: "Phạm Thị D",
-    createdAt: new Date(2023, 11, 18),
-    updatedAt: new Date(2023, 11, 18),
-  },
-  {
-    id: "task-5",
-    title: "Sửa lỗi thanh toán trên thiết bị di động",
-    description: "Khắc phục vấn đề người dùng không thể hoàn tất thanh toán trên ứng dụng di động.",
-    status: "canceled",
-    priority: "high",
-    dueDate: new Date(2023, 11, 12),
-    assignedTo: "Nguyễn Văn A",
-    createdAt: new Date(2023, 11, 5),
-    updatedAt: new Date(2023, 11, 11),
-  },
-];
+// API endpoint thực
+const API_ENDPOINT = process.env.NEXT_PUBLIC_API_URL || 'https://api.example.com';
 
 // Xử lý GET request để lấy danh sách task
 export async function GET(request: NextRequest) {
@@ -72,14 +17,67 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    return NextResponse.json({
-      success: true,
-      data: mockTasks
+    // Lấy URL API từ config nếu có, hoặc sử dụng giá trị mặc định
+    const apiUrl = config?.api?.baseUrl 
+      ? `${config.api.baseUrl}${config.api.endpoints?.tasks || '/tasks'}` 
+      : `${process.env.NEXT_PUBLIC_API_URL || 'https://api.example.com'}/tasks`;
+    
+    console.log('Gọi API tasks từ URL:', apiUrl);
+    
+    // Gọi API thực
+    const response = await fetch(apiUrl, {
+      headers: {
+        'Authorization': `Bearer ${authResult.token}`,
+        'Content-Type': 'application/json'
+      },
+      cache: 'no-store'
     });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Lỗi khi gọi API tasks:', errorText, 'Status:', response.status);
+      return NextResponse.json(
+        { error: `Không thể lấy danh sách nhiệm vụ. Status: ${response.status}` },
+        { status: response.status }
+      );
+    }
+    
+    // Lấy dữ liệu từ response
+    const responseData = await response.json();
+    console.log('Response structure:', JSON.stringify(responseData).substring(0, 200) + '...');
+    
+    // Kiểm tra cấu trúc dữ liệu và trích xuất mảng tasks
+    let tasks = [];
+    if (Array.isArray(responseData)) {
+      tasks = responseData;
+    } else if (responseData && responseData.data && Array.isArray(responseData.data)) {
+      tasks = responseData.data;
+    } else if (responseData && typeof responseData === 'object') {
+      // Tìm trường chứa mảng dữ liệu
+      const possibleArrayFields = Object.keys(responseData).filter(key => 
+        Array.isArray(responseData[key])
+      );
+      
+      if (possibleArrayFields.length > 0) {
+        // Lấy mảng đầu tiên tìm thấy
+        tasks = responseData[possibleArrayFields[0]];
+      } else {
+        console.error('Không tìm thấy mảng dữ liệu trong response:', responseData);
+        throw new Error('Cấu trúc dữ liệu không đúng định dạng');
+      }
+    } else {
+      console.error('Response không đúng định dạng:', responseData);
+      throw new Error('Dữ liệu không đúng định dạng');
+    }
+    
+    console.log('Tổng số nhiệm vụ nhận được:', tasks.length);
+    
+    // Trả về kết quả trong định dạng tương thích với frontend
+    return NextResponse.json({ data: tasks });
   } catch (error) {
-    console.error('Lỗi khi lấy danh sách công việc:', error);
+    console.error('Lỗi khi xử lý API tasks:', error);
     return NextResponse.json(
-      { message: 'Đã xảy ra lỗi khi lấy danh sách công việc' },
+      { message: 'Đã xảy ra lỗi khi lấy danh sách nhiệm vụ', error: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
@@ -101,34 +99,40 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     
     // Validate dữ liệu
-    if (!data.title || !data.description || !data.priority || !data.assignedTo) {
+    if (!data.taskName || !data.order || !data.expPoint) {
       return NextResponse.json(
         { message: 'Thiếu thông tin bắt buộc' },
         { status: 400 }
       );
     }
     
-    // Tạo task mới
-    const newTask = {
-      id: `task-${Date.now()}`,
-      title: data.title,
-      description: data.description,
-      status: data.status || "pending",
-      priority: data.priority,
-      dueDate: data.dueDate ? new Date(data.dueDate) : new Date(),
-      assignedTo: data.assignedTo,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    // Lấy URL API từ config nếu có, hoặc sử dụng giá trị mặc định
+    const apiUrl = config?.api?.baseUrl 
+      ? `${config.api.baseUrl}${config.api.endpoints?.tasks || '/tasks'}` 
+      : `${process.env.NEXT_PUBLIC_API_URL || 'https://api.example.com'}/tasks`;
     
-    // Trong thực tế, sẽ lưu vào database
-    mockTasks.push(newTask);
+    // Gọi API thực
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authResult.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
     
-    return NextResponse.json({
-      success: true,
-      message: 'Tạo công việc mới thành công',
-      data: newTask
-    }, { status: 201 });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Lỗi khi tạo nhiệm vụ mới (${response.status}):`, errorText);
+      return NextResponse.json(
+        { message: `Không thể tạo nhiệm vụ mới: ${response.status}` },
+        { status: response.status }
+      );
+    }
+    
+    const result = await response.json();
+    
+    return NextResponse.json(result, { status: 201 });
   } catch (error) {
     console.error('Lỗi khi tạo công việc mới:', error);
     return NextResponse.json(
