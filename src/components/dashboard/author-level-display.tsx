@@ -9,10 +9,12 @@ import { Award, Book, Crown, Edit, Feather, PenTool } from "lucide-react"
 import { AuthorLevel } from "@/hooks/use-author-levels"
 
 interface AuthorLevelDisplayProps {
-  authorLevelId: string | null | undefined
+  authorLevelId?: string | null | undefined
+  level?: string
+  experiencePoints?: number
 }
 
-export function AuthorLevelDisplay({ authorLevelId }: AuthorLevelDisplayProps) {
+export function AuthorLevelDisplay({ authorLevelId, level, experiencePoints }: AuthorLevelDisplayProps) {
   const { isLoading } = useAuthorLevels()
   const [authorLevel, setAuthorLevel] = useState<AuthorLevel | null>(null)
   const [benefits, setBenefits] = useState<string[]>([])
@@ -20,6 +22,85 @@ export function AuthorLevelDisplay({ authorLevelId }: AuthorLevelDisplayProps) {
   const [displayIcon, setDisplayIcon] = useState("edit")
 
   useEffect(() => {
+    // Hàm xác định cấp độ từ tên level
+    const determineLevelFromName = (levelName?: string) => {
+      if (!levelName) return 1;
+      
+      const levelMap: Record<string, number> = {
+        'Beginner': 1,
+        'Junior': 2,
+        'Intermediate': 3,
+        'Senior': 4,
+        'Expert': 5,
+        'Master': 6
+      };
+      
+      return levelMap[levelName] || 1;
+    }
+    
+    // Nếu có truyền trực tiếp level và experiencePoints, sử dụng chúng
+    if (level) {
+      const levelNumber = determineLevelFromName(level);
+      
+      // Tạo dữ liệu cấp độ từ các thông tin đã được cung cấp
+      const levelData = {
+        _id: 'local',
+        title: level,
+        level: levelNumber,
+        requiredExp: 0,
+        description: `Cấp độ ${level}`,
+        benefits: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      setAuthorLevel(levelData);
+      
+      // Xác định màu dựa trên cấp độ
+      let color = "blue";
+      if (levelNumber <= 1) color = "gray";
+      else if (levelNumber === 2) color = "green";
+      else if (levelNumber === 3) color = "blue";
+      else if (levelNumber === 4) color = "purple";
+      else if (levelNumber === 5) color = "orange";
+      else if (levelNumber >= 6) color = "red";
+      setDisplayColor(color);
+      
+      // Xác định icon dựa trên cấp độ
+      let icon = "edit";
+      if (levelNumber === 2) icon = "pen-tool";
+      else if (levelNumber === 3) icon = "feather";
+      else if (levelNumber === 4) icon = "book";
+      else if (levelNumber === 5) icon = "award";
+      else if (levelNumber >= 6) icon = "crown";
+      setDisplayIcon(icon);
+      
+      // Tạo danh sách đặc quyền dựa trên cấp độ
+      const levelBenefits: string[] = [];
+      if (levelNumber >= 1) {
+        levelBenefits.push("Đăng truyện", "Nhận phản hồi");
+      }
+      if (levelNumber >= 2) {
+        levelBenefits.push("Đặt giá cho chương truyện");
+      }
+      if (levelNumber >= 3) {
+        levelBenefits.push(`Giảm 5% phí nền tảng`);
+      }
+      if (levelNumber >= 4) {
+        levelBenefits.push(`Giảm 10% phí nền tảng`, "Huy hiệu tác giả");
+      }
+      if (levelNumber >= 5) {
+        levelBenefits.push(`Giảm 15% phí nền tảng`, "Quảng bá truyện");
+      }
+      if (levelNumber >= 6) {
+        levelBenefits.push(`Giảm 20% phí nền tảng`, "Hợp đồng đặc biệt");
+      }
+      setBenefits(levelBenefits);
+      
+      return;
+    }
+    
+    // Nếu không có level trực tiếp, sử dụng authorLevelId để lấy thông tin
     // Hàm lấy thông tin cấp độ tác giả
     const loadAuthorLevel = async () => {
       if (!authorLevelId) return
@@ -81,7 +162,7 @@ export function AuthorLevelDisplay({ authorLevelId }: AuthorLevelDisplayProps) {
     }
     
     loadAuthorLevel()
-  }, [authorLevelId])
+  }, [authorLevelId, level])
 
   // Hàm trả về component icon tương ứng
   const getIconComponent = (iconName: string) => {
@@ -122,7 +203,7 @@ export function AuthorLevelDisplay({ authorLevelId }: AuthorLevelDisplayProps) {
     )
   }
 
-  if (isLoading) {
+  if (isLoading && !level) {
     return (
       <Card>
         <CardHeader>
@@ -169,8 +250,16 @@ export function AuthorLevelDisplay({ authorLevelId }: AuthorLevelDisplayProps) {
       <CardContent>
         <div className="space-y-4">
           <div>
-            <h4 className="text-sm font-medium">Yêu cầu kinh nghiệm</h4>
-            <p className="text-sm text-muted-foreground">{authorLevel.requiredExp} điểm kinh nghiệm</p>
+            <h4 className="text-sm font-medium">Kinh nghiệm hiện tại</h4>
+            <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+              <div 
+                className={`bg-${displayColor}-600 h-2.5 rounded-full`}
+                style={{ width: `${Math.min(100, ((experiencePoints || 0) / 1000) * 100)}%` }}
+              ></div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {experiencePoints || 0} điểm kinh nghiệm
+            </p>
           </div>
           
           <div>

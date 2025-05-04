@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
-import { ArrowLeft, Book, DollarSign, Edit, Eye, MessageSquare, Star, Users } from "lucide-react"
+import { ArrowLeft, Book, DollarSign, Edit, Eye, MessageSquare, Star, Users, Wallet } from "lucide-react"
 import { format } from "date-fns"
 import { AuthorLevelDisplay } from "@/components/dashboard/author-level-display"
 
@@ -34,10 +34,27 @@ interface Author {
   totalEarnings?: number
 }
 
+interface AuthorWallet {
+  _id: string
+  userId: {
+    _id: string
+    fullname: string
+    username: string
+    avatar: string
+  }
+  totalRevenue: number
+  monthlyRevenue: Record<string, number>
+  lastUpdated: string
+  createdAt: string
+  updatedAt: string
+}
+
 export default function AuthorDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [author, setAuthor] = useState<Author | null>(null)
+  const [wallet, setWallet] = useState<AuthorWallet | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isWalletLoading, setIsWalletLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("overview")
 
   useEffect(() => {
@@ -66,6 +83,47 @@ export default function AuthorDetailPage({ params }: { params: { id: string } })
 
     if (params.id) {
       fetchAuthorDetails()
+    }
+  }, [params.id])
+
+  useEffect(() => {
+    const fetchAuthorWallet = async () => {
+      try {
+        setIsWalletLoading(true)
+        // Lấy token từ sessionStorage
+        const token = sessionStorage.getItem('admin_token')
+        if (!token) {
+          console.error("Không tìm thấy token xác thực")
+          return
+        }
+
+        console.log(`Đang gọi API wallet với ID: ${params.id}`)
+        // Gọi API để lấy thông tin ví của tác giả
+        const response = await axios.get(`/api/wallets/${params.id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        
+        if (response.data) {
+          console.log("Dữ liệu ví nhận được:", response.data)
+          setWallet(response.data)
+        }
+      } catch (error) {
+        console.error("Lỗi khi lấy thông tin ví tác giả:", error)
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          console.log("Không tìm thấy ví của tác giả này")
+        } else {
+          console.error("Lỗi chi tiết:", error)
+        }
+        // Không hiển thị toast để tránh gây khó chịu nếu API chưa có
+      } finally {
+        setIsWalletLoading(false)
+      }
+    }
+
+    if (params.id) {
+      fetchAuthorWallet()
     }
   }, [params.id])
 
@@ -249,132 +307,157 @@ export default function AuthorDetailPage({ params }: { params: { id: string } })
           </CardContent>
         </Card>
         
-        {/* Thông tin cấp độ */}
+        {/* Thông tin doanh thu */}
         <Card className="md:col-span-3">
           <CardHeader>
-            <CardTitle>Cấp độ tác giả</CardTitle>
+            <CardTitle className="flex items-center">
+              <Wallet className="h-5 w-5 mr-2 text-amber-500" />
+              Ví tác giả
+            </CardTitle>
             <CardDescription>
-              Thông tin cấp độ và đặc quyền của tác giả
+              Thông tin doanh thu chi tiết của tác giả
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            {/* Sử dụng component AuthorLevelDisplay để hiển thị thông tin cấp độ tác giả */}
-            <AuthorLevelDisplay authorLevelId={author.levelId} />
-            
-            <div className="mt-4">
-              <p className="text-sm font-medium">Kinh nghiệm hiện tại</p>
-              <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                <div 
-                  className="bg-blue-600 h-2.5 rounded-full" 
-                  style={{ width: `${Math.min(100, (author.experiencePoints || 0) / 100)}%` }}
-                ></div>
+          <CardContent className="space-y-6">
+            {isWalletLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-6 w-3/4" />
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {author.experiencePoints || 0} điểm kinh nghiệm
+            ) : wallet ? (
+              <>
+                <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg p-5 border border-amber-100">
+                  <p className="text-sm text-amber-700 mb-2">Tổng doanh thu</p>
+                  <p className="text-3xl font-bold text-amber-700">{formatCurrency(wallet.totalRevenue)}</p>
+                  <p className="text-xs text-amber-600 mt-1">
+                    Cập nhật lần cuối: {format(new Date(wallet.lastUpdated), "dd/MM/yyyy HH:mm")}
               </p>
             </div>
+                
+                {Object.keys(wallet.monthlyRevenue).length > 0 ? (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium">Doanh thu theo tháng</h3>
+                    <div className="space-y-2">
+                      {Object.entries(wallet.monthlyRevenue)
+                        .sort((a, b) => b[0].localeCompare(a[0])) // Sắp xếp giảm dần theo thời gian
+                        .map(([month, revenue]) => (
+                          <div key={month} className="flex justify-between items-center py-2 border-b">
+                            <p className="text-sm">{month}</p>
+                            <p className="text-sm font-medium">{formatCurrency(revenue)}</p>
+                          </div>
+                        ))}
+                    </div>
+                    
+                    {/* Thêm biểu đồ đơn giản */}
+                    <div className="pt-4">
+                      <h3 className="text-sm font-medium mb-3">Biểu đồ doanh thu</h3>
+                      <div className="relative h-40 flex items-end space-x-2">
+                        {Object.entries(wallet.monthlyRevenue)
+                          .sort((a, b) => a[0].localeCompare(b[0])) // Sắp xếp tăng dần theo thời gian
+                          .slice(-6) // Chỉ lấy 6 tháng gần nhất
+                          .map(([month, revenue], index) => {
+                            // Tìm giá trị cao nhất để tính toán tỷ lệ
+                            const maxRevenue = Math.max(...Object.values(wallet.monthlyRevenue));
+                            const percentage = maxRevenue ? (revenue / maxRevenue) * 100 : 0;
+                            
+                            return (
+                              <div key={index} className="flex flex-col items-center flex-1">
+                                <div 
+                                  className="w-full bg-amber-400 rounded-t"
+                                  style={{ height: `${percentage}%` }}
+                                ></div>
+                                <span className="text-xs mt-1 truncate w-full text-center">
+                                  {month.split('/')[0]}
+                                </span>
+                              </div>
+                            );
+                          })
+                        }
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Chưa có dữ liệu doanh thu theo tháng</p>
+                )}
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Wallet className="h-10 w-10 text-muted-foreground mb-3" />
+                <p className="text-muted-foreground">Chưa có thông tin ví tác giả</p>
+              </div>
+            )}
           </CardContent>
         </Card>
+        
+        {/* Phần còn lại của trang */}
+        <Card className="md:col-span-3">
+            <CardHeader>
+            <CardTitle>Cấp độ tác giả</CardTitle>
+            <CardDescription>Cấp độ hiện tại và tiến độ</CardDescription>
+            </CardHeader>
+            <CardContent>
+            <AuthorLevelDisplay 
+              level={author.level || 'Beginner'} 
+              experiencePoints={author.experiencePoints || 0}
+            />
+                  </CardContent>
+                </Card>
+                
+        <Card className="md:col-span-4">
+          <CardHeader>
+            <CardTitle>Doanh thu</CardTitle>
+            <CardDescription>Tổng quan về doanh thu và giao dịch</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+            <div className="grid gap-4 grid-cols-2">
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Tổng doanh thu</p>
+                <p className="text-2xl font-bold">{formatCurrency(author.totalEarnings || 0)}</p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Giao dịch</p>
+                <p className="text-2xl font-bold">{author.totalTransactions || 0}</p>
+              </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+        <Card className="md:col-span-7">
+          <CardHeader>
+            <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
+              <TabsList>
+                <TabsTrigger value="overview">Tổng quan</TabsTrigger>
+                <TabsTrigger value="novels">Truyện</TabsTrigger>
+                <TabsTrigger value="transactions">Giao dịch</TabsTrigger>
+                <TabsTrigger value="followers">Người theo dõi</TabsTrigger>
+              </TabsList>
+            </Tabs>
+                  </CardHeader>
+                  <CardContent>
+            <TabsContent value="overview" className="mt-0">
+              <div className="text-muted-foreground">
+                Đang phát triển tính năng...
+              </div>
+        </TabsContent>
+            <TabsContent value="novels" className="mt-0">
+              <div className="text-muted-foreground">
+                Đang phát triển tính năng...
+              </div>
+        </TabsContent>
+            <TabsContent value="transactions" className="mt-0">
+              <div className="text-muted-foreground">
+                Đang phát triển tính năng...
+              </div>
+        </TabsContent>
+            <TabsContent value="followers" className="mt-0">
+              <div className="text-muted-foreground">
+                Đang phát triển tính năng...
+              </div>
+            </TabsContent>
+            </CardContent>
+          </Card>
       </div>
-      
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="overview">Tổng quan</TabsTrigger>
-          <TabsTrigger value="novels">Truyện đã đăng</TabsTrigger>
-          <TabsTrigger value="transactions">Giao dịch</TabsTrigger>
-          <TabsTrigger value="comments">Bình luận</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="overview" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Thống kê</CardTitle>
-              <CardDescription>Thống kê hoạt động của tác giả trong 30 ngày qua</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Tổng thu nhập</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between">
-                      <DollarSign className="h-5 w-5 text-muted-foreground" />
-                      <span className="text-2xl font-bold">{formatCurrency(author.totalEarnings)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Lượt xem</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between">
-                      <Eye className="h-5 w-5 text-muted-foreground" />
-                      <span className="text-2xl font-bold">{formatViews(author.totalViews)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Giao dịch</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between">
-                      <MessageSquare className="h-5 w-5 text-muted-foreground" />
-                      <span className="text-2xl font-bold">{author.totalTransactions || 0}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="novels">
-          <Card>
-            <CardHeader>
-              <CardTitle>Truyện đã đăng</CardTitle>
-              <CardDescription>Danh sách truyện tác giả đã đăng</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center p-8 text-muted-foreground">
-                <p>Chưa có dữ liệu truyện</p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="transactions">
-          <Card>
-            <CardHeader>
-              <CardTitle>Lịch sử giao dịch</CardTitle>
-              <CardDescription>Lịch sử giao dịch của tác giả</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center p-8 text-muted-foreground">
-                <p>Chưa có dữ liệu giao dịch</p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="comments">
-          <Card>
-            <CardHeader>
-              <CardTitle>Bình luận</CardTitle>
-              <CardDescription>Bình luận của tác giả</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center p-8 text-muted-foreground">
-                <p>Chưa có dữ liệu bình luận</p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
     </div>
   )
 }

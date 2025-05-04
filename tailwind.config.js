@@ -60,10 +60,19 @@ const config = {
             transform: 'translateY(0)',
             opacity: '1'
           },
+        },
+        fadeIn: {
+          '0%': { 
+            opacity: '0'
+          },
+          '100%': { 
+            opacity: '1'
+          },
         }
       },
       animation: {
-        slideDown: 'slideDown 0.5s ease-out forwards'
+        slideDown: 'slideDown 0.5s ease-out forwards',
+        fadeIn: 'fadeIn 0.6s ease-out forwards'
       }
     },
   },

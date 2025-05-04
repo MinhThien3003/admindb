@@ -40,6 +40,29 @@ import axios from "axios"
 import { Author } from "@/types/author"
 import Link from "next/link"
 import { toast } from "sonner"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+
+// Interface cho ví tác giả
+interface AuthorWallet {
+  _id: string
+  userId: {
+    _id: string
+    fullname: string
+    username: string
+    avatar: string
+  }
+  totalRevenue: number
+  monthlyRevenue: Record<string, number>
+  lastUpdated: string
+  createdAt: string
+  updatedAt: string
+}
 
 // Interface cho form data
 interface AuthorFormData {
@@ -82,14 +105,16 @@ export default function AuthorsPage() {
   const [users, setUsers] = useState<Author[]>([])
   const [filteredUsers, setFilteredUsers] = useState<Author[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
   const [genderFilter, setGenderFilter] = useState<string>("all")
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [currentPage, setCurrentPage] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
+  const [wallets, setWallets] = useState<Record<string, AuthorWallet>>({})
+  const [isLoadingWallets, setIsLoadingWallets] = useState(false)
   const ITEMS_PER_PAGE = 10
   const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showWalletDialog, setShowWalletDialog] = useState(false)
   const [editingUser, setEditingUser] = useState<Author | null>(null)
   const [editFormData, setEditFormData] = useState<AuthorFormData>({
     fullname: '',
@@ -132,11 +157,59 @@ export default function AuthorsPage() {
 
       console.log('Valid users:', validUsers)
       setUsers(validUsers)
+      
+      // Lấy thông tin ví của tất cả tác giả
+      await fetchAuthorsWallets(validUsers)
     } catch (error) {
       console.error('Lỗi khi tải dữ liệu người dùng:', error)
       toast.error(error instanceof Error ? error.message : "Không thể tải dữ liệu người dùng")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Thêm hàm lấy thông tin ví của tất cả tác giả
+  const fetchAuthorsWallets = async (authors: Author[]) => {
+    try {
+      setIsLoadingWallets(true)
+      const token = sessionStorage.getItem('admin_token')
+      if (!token) {
+        console.error('Không tìm thấy token xác thực')
+        return
+      }
+
+      const walletsData: Record<string, AuthorWallet> = {}
+      
+      // Lấy ví cho từng tác giả (thực hiện song song các request)
+      const requests = authors.map(author => 
+        axios.get<AuthorWallet>(`/api/wallets/${author._id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        .then(response => {
+          if (response.data) {
+            walletsData[author._id] = response.data
+          }
+          return response
+        })
+        .catch(error => {
+          // Lỗi khi lấy ví của một tác giả cụ thể, nhưng không dừng hàm
+          console.log(`Không thể lấy ví của tác giả ${author._id}:`, error)
+          return null
+        })
+      )
+      
+      // Chờ tất cả request hoàn thành
+      await Promise.allSettled(requests)
+      
+      // Cập nhật state với dữ liệu ví đã lấy được
+      console.log('Dữ liệu ví tác giả:', walletsData)
+      setWallets(walletsData)
+    } catch (error) {
+      console.error('Lỗi khi lấy dữ liệu ví tác giả:', error)
+    } finally {
+      setIsLoadingWallets(false)
     }
   }
 
@@ -182,7 +255,6 @@ export default function AuthorsPage() {
           (user.email?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
           (user.fullname?.toLowerCase().includes(searchQuery.toLowerCase()) || false)
         
-        const matchesStatus = statusFilter === "all" || user.status === statusFilter
         const matchesGender = genderFilter === "all" || user.gender === genderFilter
         
         const userCreatedAt = user.createdAt ? new Date(user.createdAt) : null
@@ -190,7 +262,7 @@ export default function AuthorsPage() {
           (userCreatedAt && userCreatedAt >= dateRange.from && 
            userCreatedAt <= new Date(dateRange.to.getTime() + 86400000))
         
-        return matchesSearch && matchesStatus && matchesGender && matchesDateRange
+        return matchesSearch && matchesGender && matchesDateRange
       } catch (error) {
         console.error('Lỗi khi lọc user:', error, user)
         return false
@@ -199,7 +271,7 @@ export default function AuthorsPage() {
     
     console.log('Filtered users:', filtered)
     setFilteredUsers(filtered)
-  }, [users, searchQuery, statusFilter, genderFilter, dateRange])
+  }, [users, searchQuery, genderFilter, dateRange])
 
   // Tính toán số trang
   const totalPages = Math.max(1, Math.ceil((filteredUsers?.length || 0) / ITEMS_PER_PAGE))
@@ -213,9 +285,15 @@ export default function AuthorsPage() {
     : []
   console.log('Paginated users:', paginatedUsers)
 
-  // Tính tổng doanh thu và lượt xem
+  // Tính tổng doanh thu từ cả dữ liệu tác giả và ví
   const totalEarnings = Array.isArray(filteredUsers)
-    ? filteredUsers.reduce((sum, user) => sum + (user?.totalEarnings || 0), 0)
+    ? filteredUsers.reduce((sum, user) => {
+        // Ưu tiên lấy doanh thu từ ví (nếu có)
+        const walletRevenue = wallets[user._id]?.totalRevenue || 0
+        const userEarnings = user?.totalEarnings || 0
+        // Sử dụng giá trị lớn hơn giữa hai nguồn
+        return sum + Math.max(walletRevenue, userEarnings)
+      }, 0)
     : 0
 
   const totalViews = Array.isArray(filteredUsers)
@@ -503,13 +581,13 @@ export default function AuthorsPage() {
         ));
         setFilteredUsers(prevUsers => prevUsers.map(user => 
           user._id === editingUser._id ? { ...user, ...response.data } : user
-        ));
+          ));
         
-        setShowEditDialog(false);
-      }
+          setShowEditDialog(false);
+        }
     } catch (error) {
       toast.dismiss();
-      console.error('Lỗi khi cập nhật tác giả:', error);
+        console.error('Lỗi khi cập nhật tác giả:', error);
       toast.error(error instanceof Error ? error.message : 'Có lỗi xảy ra khi cập nhật thông tin tác giả');
     } finally {
       setIsLoading(false);
@@ -540,11 +618,11 @@ export default function AuthorsPage() {
       });
 
       // Kiểm tra status code trước
-      if (response.status === 401) {
+        if (response.status === 401) {
         toast.error('Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.');
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 2000);
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
         return;
       }
 
@@ -608,22 +686,24 @@ export default function AuthorsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">{formatCurrency(totalEarnings)}</div>
+            <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">
               Từ {filteredUsers.length} tác giả
             </p>
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Tổng lượt xem
+              Tổng tác giả hiện tại
             </CardTitle>
             <Eye className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{formatViews(totalViews)}</div>
+            <div className="text-2xl font-bold text-blue-600">{users.length}</div>
             <p className="text-xs text-muted-foreground">
-              Trên tất cả truyện của tác giả
+              Trong hệ thống
             </p>
           </CardContent>
         </Card>
@@ -641,16 +721,6 @@ export default function AuthorsPage() {
             />
           </div>
           <div className="flex gap-2">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                <SelectItem value="active">Hoạt động</SelectItem>
-                <SelectItem value="inactive">Không hoạt động</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={genderFilter} onValueChange={setGenderFilter}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Giới tính" />
@@ -674,7 +744,6 @@ export default function AuthorsPage() {
               <TableRow>
                 <TableHead>Tác giả</TableHead>
                 <TableHead>Thông tin</TableHead>
-                <TableHead>Lượt xem</TableHead>
                 <TableHead>Doanh thu</TableHead>
                 <TableHead>Ngày tham gia</TableHead>
                 <TableHead>Thao tác</TableHead>
@@ -737,21 +806,31 @@ export default function AuthorsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <Eye className="h-4 w-4 text-blue-500" />
-                          <span>{formatViews(user.totalViews || 0)}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
                           <DollarSign className="h-4 w-4 text-green-500" />
+                          {isLoadingWallets ? (
+                            <div className="w-24 h-5 bg-gray-200 animate-pulse rounded"></div>
+                          ) : wallets[user._id] ? (
+                            <span className="text-green-600 font-medium">{formatCurrency(wallets[user._id].totalRevenue || 0)}</span>
+                          ) : (
                           <span>{formatCurrency(user.totalEarnings || 0)}</span>
+                          )}
                         </div>
+                        {wallets[user._id] && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="text-xs text-gray-500">
+                              Cập nhật: {new Date(wallets[user._id].lastUpdated).toLocaleDateString('vi-VN')}
+                            </p>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         {user.createdAt ? format(new Date(user.createdAt), "dd/MM/yyyy") : 'N/A'}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
                           <Button 
                             variant="ghost" 
                             size="icon"
@@ -760,6 +839,16 @@ export default function AuthorsPage() {
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Chỉnh sửa tác giả</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
                           <Button 
                             variant="ghost" 
                             size="icon"
@@ -768,6 +857,12 @@ export default function AuthorsPage() {
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Xóa tác giả</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -965,6 +1060,71 @@ export default function AuthorsPage() {
               </Button>
             </form>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog hiển thị thông tin ví tác giả */}
+      <Dialog open={showWalletDialog} onOpenChange={setShowWalletDialog}>
+        <DialogContent className="sm:max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle>Thông tin ví tác giả</DialogTitle>
+            <DialogDescription>
+              Danh sách ví của tất cả tác giả theo thứ tự doanh thu giảm dần.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 h-[500px] overflow-y-auto">
+            {isLoadingWallets ? (
+              <div className="flex flex-col items-center justify-center h-full">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-amber-500"></div>
+                <p className="mt-2 text-sm text-muted-foreground">Đang tải dữ liệu ví...</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {Object.entries(wallets).map(([userId, wallet]) => (
+                  <Card key={userId} className="overflow-hidden">
+                    <CardHeader className="p-4 pb-2 flex flex-row items-center space-y-0 gap-3">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={wallet.userId.avatar} alt={wallet.userId.username} />
+                        <AvatarFallback>{wallet.userId.username.charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <CardTitle className="text-base">{wallet.userId.fullname}</CardTitle>
+                        <div className="text-sm text-muted-foreground">@{wallet.userId.username}</div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-1">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-amber-600">Tổng doanh thu</p>
+                          <p className="text-xl font-bold">{formatCurrency(wallet.totalRevenue)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Cập nhật: {format(new Date(wallet.lastUpdated), "dd/MM/yyyy")}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {Object.keys(wallet.monthlyRevenue).length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-sm font-medium mb-2">Doanh thu theo tháng</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {Object.entries(wallet.monthlyRevenue)
+                              .sort((a, b) => b[0].localeCompare(a[0]))
+                              .slice(0, 6)
+                              .map(([month, revenue]) => (
+                                <div key={month} className="flex justify-between items-center p-2 bg-amber-50 rounded-md">
+                                  <span className="text-xs">{month}</span>
+                                  <span className="text-xs font-medium">{formatCurrency(revenue)}</span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

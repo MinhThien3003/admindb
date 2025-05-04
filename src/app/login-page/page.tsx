@@ -48,47 +48,24 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="h-screen flex items-center justify-center bg-slate-600 relative overflow-hidden">
-            {/* Character N */}
-            <div className="absolute left-[5%] top-1/2 -translate-y-1/2 hidden lg:block animate-slideDown">
+        <div className="h-screen flex items-center justify-center relative overflow-hidden">
+            {/* Background Image */}
+            <div className="absolute inset-0 z-0">
                 <Image
-                    src="/images/login/char N.png"
-                    alt="Character N"
-                    width={400}
-                    height={600}
+                    src="/images/login/bg.jpg"
+                    alt="Background"
+                    fill
                     priority
-                    quality={75}
+                    quality={90}
                     style={{
-                        objectFit: 'contain',
-                        width: '400px',
-                        height: '600px',
-                        filter: 'drop-shadow(0 0 20px rgba(0,0,0,0.1))',
-                        transform: 'translateZ(0)'  // Tối ưu performance
+                        objectFit: 'cover',
                     }}
                 />
-            </div>
-
-            {/* Character S */}
-            <div className="absolute right-[5%] top-1/2 -translate-y-1/2 hidden lg:block animate-slideDown">
-                <Image
-                    src="/images/login/char S.png"
-                    alt="Character S"
-                    width={400}
-                    height={600}
-                    priority
-                    quality={75}
-                    style={{
-                        objectFit: 'contain',
-                        width: '400px',
-                        height: '600px',
-                        filter: 'drop-shadow(0 0 20px rgba(0,0,0,0.1))',
-                        transform: 'translateZ(0)'  // Tối ưu performance
-                    }}
-                />
+                <div className="absolute inset-0 bg-black/40"></div>
             </div>
 
             {/* Login Form */}
-            <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-lg z-10 animate-slideDown">
+            <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-lg z-10 animate-fadeIn">
                 <div className="space-y-2 text-center">
                     <h1 className="text-3xl font-bold">Novel Saga</h1>
                     <p className="text-gray-600">Chào Mừng Đến Với Admin DashBoard</p>

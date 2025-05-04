@@ -17,6 +17,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import { Search, Trash2, Plus, Edit2, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
@@ -49,6 +51,8 @@ export default function CategoriesPage() {
     titleCategory: "",
     description: ""
   })
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null)
   const { toast } = useToast()
   const ITEMS_PER_PAGE = 10
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -136,9 +140,9 @@ export default function CategoriesPage() {
     currentPage * ITEMS_PER_PAGE
   )
 
-  const handleDelete = (id: string) => {
-    // Kiểm tra xem thể loại có truyện không
+  const handleDeleteClick = (id: string) => {
     const category = categories.find(cat => cat._id === id)
+    // Kiểm tra xem thể loại có truyện không
     if (category && category.novelCount && category.novelCount > 0) {
       toast({
         title: "Không thể xóa",
@@ -147,12 +151,115 @@ export default function CategoriesPage() {
       })
       return
     }
+    
+    // Lưu ID thể loại cần xóa và mở dialog xác nhận
+    setCategoryToDelete(id)
+    setIsDeleteDialogOpen(true)
+  }
 
-    setCategories(categories.filter((category) => category._id !== id))
-    toast({
-      title: "Đã xóa thể loại",
-      description: "Thể loại đã được xóa thành công."
-    })
+  const handleDelete = async () => {
+    if (!categoryToDelete) return;
+    
+    const id = categoryToDelete;
+    try {
+      setIsLoading(true);
+      
+      // Lấy token xác thực từ localStorage
+      let token;
+      try {
+        token = localStorage.getItem('admin_token');
+        if (!token) {
+          toast({
+            title: "Lỗi xác thực",
+            description: "Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.",
+            variant: "destructive"
+          });
+          console.error('Token không tìm thấy trong localStorage');
+          throw new Error("Phiên làm việc không hợp lệ");
+        }
+        console.log('Đã tìm thấy token xác thực');
+      } catch (error) {
+        console.error('Lỗi khi truy cập localStorage:', error);
+        toast({
+          title: "Lỗi xác thực",
+          description: "Không thể xác thực phiên làm việc. Vui lòng tải lại trang.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Thử gọi API trực tiếp trước
+      try {
+        const directUrl = `http://localhost:5000/api/categories/${id}`;
+        console.log("Thử gọi API xóa trực tiếp tới:", directUrl);
+        
+        const requestConfig = {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        };
+        
+        const response = await axios.delete(directUrl, requestConfig);
+        
+        console.log("API trực tiếp - Response status:", response.status);
+        
+        if (response.status === 200) {
+          setCategories(categories.filter((category) => category._id !== id));
+          setIsDeleteDialogOpen(false);
+          toast({
+            title: "Thành công",
+            description: "Thể loại đã được xóa thành công.",
+            variant: "default",
+            className: "bg-green-50 border-green-200 text-green-800"
+          });
+        }
+        
+        return; // Kết thúc nếu thành công
+      } catch (directError) {
+        console.error("Lỗi khi gọi API trực tiếp:", directError);
+        
+        // Thử với API Next.js proxy
+        try {
+          console.log("Thử gọi API xóa qua Next.js proxy");
+          
+          const response = await axios.delete(`/api/categories/${id}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (response.status === 200) {
+            setCategories(categories.filter((category) => category._id !== id));
+            setIsDeleteDialogOpen(false);
+            toast({
+              title: "Thành công",
+              description: "Thể loại đã được xóa thành công.",
+              variant: "default",
+              className: "bg-green-50 border-green-200 text-green-800"
+            });
+          }
+        } catch (proxyError) {
+          console.error('Error deleting category via proxy:', proxyError);
+          toast({
+            title: "Lỗi",
+            description: proxyError instanceof Error ? proxyError.message : 'Đã xảy ra lỗi khi xóa thể loại',
+            variant: "destructive"
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      toast({
+        title: "Lỗi",
+        description: error instanceof Error ? error.message : 'Đã xảy ra lỗi khi xóa thể loại',
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+      setIsDeleteDialogOpen(false);
+    }
   }
 
   const handleEdit = (category: Category) => {
@@ -781,7 +888,7 @@ export default function CategoriesPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDelete(category._id)}
+                        onClick={() => handleDeleteClick(category._id)}
                         className="text-red-500 hover:text-red-700 hover:bg-red-50"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -859,6 +966,40 @@ export default function CategoriesPage() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog xác nhận xóa */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa thể loại</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn xóa thể loại này? Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex space-x-2 justify-end">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Hủy
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang xóa...
+                </>
+              ) : (
+                "Xóa"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

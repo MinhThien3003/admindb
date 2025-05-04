@@ -209,7 +209,7 @@ export default function TasksPage() {
       }
     }
   };
-
+  
   // Hàm xử lý gửi form thêm nhiệm vụ mới
   const handleAddFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,17 +236,17 @@ export default function TasksPage() {
       }
       
       const newTask = await response.json();
-      
+    
       // Thêm nhiệm vụ mới vào state
       setTasks([...tasks, newTask.data]);
-      setShowAddTaskDialog(false);
+    setShowAddTaskDialog(false);
       toast.success("Đã thêm nhiệm vụ mới thành công");
     } catch (error) {
       console.error('Lỗi khi thêm nhiệm vụ mới:', error);
       toast.error('Lỗi khi thêm nhiệm vụ mới');
     }
   };
-
+  
   // Hàm xử lý gửi form chỉnh sửa nhiệm vụ
   const handleEditFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -277,10 +277,10 @@ export default function TasksPage() {
       const updatedTask = await response.json();
       
       // Cập nhật state với thông tin mới
-      setTasks(tasks.map(task => 
+    setTasks(tasks.map(task => 
         task._id === currentTask._id ? updatedTask.data : task
-      ));
-      setShowEditTaskDialog(false);
+    ));
+    setShowEditTaskDialog(false);
       toast.success("Đã cập nhật nhiệm vụ thành công");
     } catch (error) {
       console.error('Lỗi khi cập nhật nhiệm vụ:', error);
@@ -295,7 +295,7 @@ export default function TasksPage() {
       [field]: value
     });
   };
-
+  
   // Hàm tạo badge cho điểm thưởng
   const getExpPointBadge = (points: number) => {
     let colorClass = '';
@@ -317,7 +317,7 @@ export default function TasksPage() {
       </Badge>
     );
   };
-
+  
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -328,9 +328,9 @@ export default function TasksPage() {
         >
           <Plus className="h-4 w-4 mr-2" />
           <span>Thêm nhiệm vụ mới</span>
-        </Button>
+          </Button>
       </div>
-
+      
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="bg-gradient-to-r from-blue-50 to-indigo-50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -387,33 +387,33 @@ export default function TasksPage() {
           </CardContent>
         </Card>
       </div>
-
+      
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
           <div className="relative flex-1 max-w-sm">
             <Clipboard className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
+          <Input
               placeholder="Tìm kiếm nhiệm vụ..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8"
-            />
-          </div>
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-8"
+          />
         </div>
-        
+      </div>
+      
         <div className="rounded-md border shadow-sm">
-          <Table>
+        <Table>
             <TableHeader className="bg-muted/50">
-              <TableRow>
+            <TableRow>
                 <TableHead className="w-[300px]">Nhiệm vụ</TableHead>
                 <TableHead className="w-[100px] text-center">Thứ tự</TableHead>
                 <TableHead className="w-[150px]">Điểm thưởng</TableHead>
                 <TableHead className="w-[150px]">Ngày tạo</TableHead>
                 <TableHead className="w-[150px]">Cập nhật</TableHead>
-                <TableHead className="text-right">Thao tác</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+              <TableHead className="text-right">Thao tác</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-16">
@@ -450,42 +450,42 @@ export default function TasksPage() {
                         {format(new Date(task.createdAt), 'dd/MM/yyyy')}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
                         {format(new Date(task.updatedAt), 'dd/MM/yyyy')}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          variant="ghost"
-                          size="sm"
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
                           className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-700"
-                          onClick={() => handleEditTask(task)}
-                        >
+                        onClick={() => handleEditTask(task)}
+                      >
                           <span className="sr-only">Sửa</span>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost" 
-                          size="sm" 
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
                           className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-700"
                           onClick={() => handleDeleteTask(task._id)}
-                        >
-                          <span className="sr-only">Xóa</span>
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                      >
+                        <span className="sr-only">Xóa</span>
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
         </div>
       </div>
-
+      
       {/* Dialog thêm nhiệm vụ mới */}
       <Dialog open={showAddTaskDialog} onOpenChange={setShowAddTaskDialog}>
         <DialogContent className="sm:max-w-[500px]">
@@ -561,7 +561,7 @@ export default function TasksPage() {
           </form>
         </DialogContent>
       </Dialog>
-
+      
       {/* Dialog chỉnh sửa nhiệm vụ */}
       <Dialog open={showEditTaskDialog} onOpenChange={setShowEditTaskDialog}>
         <DialogContent className="sm:max-w-[500px]">

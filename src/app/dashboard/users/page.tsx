@@ -79,6 +79,22 @@ interface User {
   status?: "active" | "inactive" | "banned"
 }
 
+// Định nghĩa interface cho ví người dùng
+interface UserWallet {
+  _id: string
+  userId: {
+    _id: string
+    fullname: string
+    username: string
+    avatar: string
+  }
+  totalRevenue: number
+  monthlyRevenue: Record<string, number>
+  lastUpdated: string
+  createdAt: string
+  updatedAt: string
+}
+
 // Dữ liệu mẫu cho cấp độ người dùng
 const userLevels: UserLevel[] = [
   {
@@ -268,6 +284,8 @@ export default function UsersPage() {
   const [avatarPreview, setAvatarPreview] = useState<string>("")
   const [showPassword, setShowPassword] = useState(false)
   const [showAddPassword, setShowAddPassword] = useState(false)
+  const [wallets, setWallets] = useState<Record<string, UserWallet>>({})
+  const [isLoadingWallets, setIsLoadingWallets] = useState(false)
 
   // Fetch users từ API khi component mount
   useEffect(() => {
@@ -306,6 +324,9 @@ export default function UsersPage() {
         }));
         
         setUsers(usersWithDefaults);
+        
+        // Sau khi lấy được danh sách người dùng, gọi API lấy thông tin ví
+        await fetchUsersWallets(usersWithDefaults);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải dữ liệu');
         console.error('Error fetching users:', err);
@@ -316,6 +337,51 @@ export default function UsersPage() {
 
     fetchUsers();
   }, []);
+
+  // Thêm hàm lấy thông tin ví của tất cả người dùng
+  const fetchUsersWallets = async (users: User[]) => {
+    try {
+      setIsLoadingWallets(true);
+      const token = sessionStorage.getItem('admin_token');
+      if (!token) {
+        console.error('Không tìm thấy token xác thực');
+        return;
+      }
+
+      const walletsData: Record<string, UserWallet> = {};
+      
+      // Lấy ví cho từng người dùng (thực hiện song song các request)
+      const requests = users.map(user => 
+        axios.get<UserWallet>(`/api/wallets/${user._id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        .then(response => {
+          if (response.data) {
+            walletsData[user._id] = response.data;
+          }
+          return response;
+        })
+        .catch(error => {
+          // Lỗi khi lấy ví của một người dùng cụ thể, nhưng không dừng hàm
+          console.log(`Không thể lấy ví của người dùng ${user._id}:`, error);
+          return null;
+        })
+      );
+      
+      // Chờ tất cả request hoàn thành
+      await Promise.allSettled(requests);
+      
+      // Cập nhật state với dữ liệu ví đã lấy được
+      console.log('Dữ liệu ví người dùng:', walletsData);
+      setWallets(walletsData);
+    } catch (error) {
+      console.error('Lỗi khi lấy dữ liệu ví người dùng:', error);
+    } finally {
+      setIsLoadingWallets(false);
+    }
+  };
 
   // Hàm xử lý khi click vào nút chỉnh sửa thông tin
   const handleEditUser = (user: User) => {
@@ -489,22 +555,11 @@ export default function UsersPage() {
       console.log('Dữ liệu gửi đi có chứa avatar:', !!updateData.avatar);
       
       // Lấy token xác thực từ localStorage
-      let token;
-      try {
-        token = localStorage.getItem('admin_token');
+      const token = localStorage.getItem('admin_token');
         if (!token) {
           toast.dismiss();
-          toast.error("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
-          console.error('Token không tìm thấy trong localStorage');
-          throw new Error("Phiên làm việc không hợp lệ");
-        }
-        
-        console.log('Đã tìm thấy token xác thực');
-      } catch (error) {
-        console.error('Lỗi khi truy cập localStorage:', error);
-        toast.dismiss();
-        toast.error("Không thể xác thực phiên làm việc. Vui lòng tải lại trang và đăng nhập lại.");
-        throw new Error("Không thể xác thực phiên làm việc");
+        toast.error('Không tìm thấy token xác thực, vui lòng đăng nhập lại');
+        return;
       }
       
       const userId = editingUser._id;
@@ -807,22 +862,11 @@ export default function UsersPage() {
       });
       
       // Lấy token xác thực từ localStorage
-      let token;
-      try {
-        token = localStorage.getItem('admin_token');
+      const token = localStorage.getItem('admin_token');
         if (!token) {
           toast.dismiss();
-          toast.error("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
-          console.error('Token không tìm thấy trong localStorage');
-          throw new Error("Phiên làm việc không hợp lệ");
-        }
-        
-        console.log('Đã tìm thấy token xác thực');
-      } catch (error) {
-        console.error('Lỗi khi truy cập localStorage:', error);
-        toast.dismiss();
-        toast.error("Không thể xác thực phiên làm việc. Vui lòng tải lại trang và đăng nhập lại.");
-        throw new Error("Không thể xác thực phiên làm việc");
+        toast.error('Không tìm thấy token xác thực, vui lòng đăng nhập lại');
+        return;
       }
       
       // Thử gọi API trực tiếp từ backend trước
@@ -1062,9 +1106,7 @@ export default function UsersPage() {
       // Lấy token xác thực từ localStorage
       const token = localStorage.getItem('admin_token');
       if (!token) {
-        toast('Không tìm thấy token xác thực, vui lòng đăng nhập lại', {
-          type: 'error'
-        });
+        toast.error('Không tìm thấy token xác thực, vui lòng đăng nhập lại');
         return;
       }
 
@@ -1092,9 +1134,7 @@ export default function UsersPage() {
       }
 
       if (response.ok) {
-        toast('Xóa người dùng thành công', {
-          type: 'success'
-        });
+        toast.success('Xóa người dùng thành công');
         // Cập nhật lại danh sách
         setUsers(users.filter(user => user._id !== userId));
       } else {
@@ -1111,7 +1151,7 @@ export default function UsersPage() {
       }
     } catch (error) {
       console.error('Lỗi khi xóa người dùng:', error);
-      toast.error('Có lỗi xảy ra khi xóa người dùng');
+      toast.error('Đã xảy ra lỗi khi xóa người dùng');
     }
   };
 
@@ -1138,19 +1178,17 @@ export default function UsersPage() {
   });
 
   // Tính tổng số trang
-  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
-  
-  // Lấy người dùng cho trang hiện tại
-  const paginatedUsers = filteredUsers.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / ITEMS_PER_PAGE))
+  const currentUsers = filteredUsers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
 
-  // Tính tổng số tiền nạp
-  const totalDeposits = filteredUsers.reduce((sum, user) => sum + (user.totalDeposit || 0), 0);
-  
-  // Tính tổng số xu
-  const totalCoins = filteredUsers.reduce((sum, user) => sum + (user.totalCoins || 0), 0);
+  // Tính tổng doanh thu từ cả dữ liệu người dùng và ví
+  const totalEarnings = filteredUsers.reduce((sum, user) => {
+    // Ưu tiên lấy doanh thu từ ví (nếu có)
+    const walletRevenue = wallets[user._id]?.totalRevenue || 0
+    const userDeposit = user?.totalDeposit || 0
+    // Sử dụng giá trị lớn hơn giữa hai nguồn
+    return sum + Math.max(walletRevenue, userDeposit)
+  }, 0)
 
   // Hàm xuất dữ liệu ra file CSV
   const exportToCSV = () => {
@@ -1586,33 +1624,49 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Tổng tiền nạp
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 bg-gradient-to-r from-blue-50 to-blue-100">
+            <CardTitle className="text-sm font-medium text-blue-800">
+              Tổng người dùng
             </CardTitle>
-            <Coins className="h-4 w-4 text-yellow-500" />
+            <div className="p-2 rounded-full bg-blue-500/10">
+              <User className="h-5 w-5 text-blue-600" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{formatCurrency(totalDeposits)}</div>
+          <CardContent className="pt-4">
+            <div className="text-3xl font-bold text-blue-700">{filteredUsers.length}</div>
+            <div className="flex items-center pt-1">
+              <span className="text-xs font-medium text-green-600 mr-1">+{Math.floor(filteredUsers.length * 0.1)}</span>
             <p className="text-xs text-muted-foreground">
-              Từ {filteredUsers.length} người dùng
+                người dùng mới trong tháng này
             </p>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Tổng xu hiện có
+        <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 bg-gradient-to-r from-amber-50 to-amber-100">
+            <CardTitle className="text-sm font-medium text-amber-800">
+              Tổng số dư
             </CardTitle>
-            <Coins className="h-4 w-4 text-blue-500" />
+            <div className="p-2 rounded-full bg-amber-500/10">
+              <Coins className="h-5 w-5 text-amber-600" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{totalCoins} xu</div>
-            <p className="text-xs text-muted-foreground">
-              Tỷ giá: 1 xu = 1,000 VND
-            </p>
+          <CardContent className="pt-4">
+            <div className="text-3xl font-bold text-amber-600">{formatCurrency(totalEarnings)}</div>
+            <div className="flex items-center pt-1 text-xs">
+              {isLoadingWallets ? (
+                <span className="flex items-center">
+                  <div className="h-3 w-3 rounded-full border-2 border-amber-400 border-t-transparent animate-spin mr-2"></div>
+                  Đang tải dữ liệu ví...
+                </span>
+              ) : (
+                <span className="text-muted-foreground">
+                  Từ {filteredUsers.length} người dùng
+                </span>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -1673,13 +1727,14 @@ export default function UsersPage() {
                 <TableHead>Tài khoản</TableHead>
                 <TableHead>Giới tính</TableHead>
                 <TableHead>Trạng thái</TableHead>
+                <TableHead>Số dư</TableHead>
                 <TableHead>Ngày tạo</TableHead>
                 <TableHead className="text-right">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedUsers.length > 0 ? (
-                paginatedUsers.map((user) => (
+              {currentUsers.length > 0 ? (
+                currentUsers.map((user) => (
                   <TableRow key={user._id}>
                     <TableCell className="font-medium">{user._id.substring(0, 8)}...</TableCell>
                     <TableCell>
@@ -1709,6 +1764,27 @@ export default function UsersPage() {
                     <TableCell>{user.username}</TableCell>
                     <TableCell>{getGenderBadge(user.gender)}</TableCell>
                     <TableCell>{getStatusBadge(user.status || 'active')}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <Coins className="h-4 w-4 text-yellow-500" />
+                          <span>
+                            {isLoadingWallets ? (
+                              <div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div>
+                            ) : wallets[user._id] ? (
+                              <span className="font-medium text-yellow-700">{formatCurrency(wallets[user._id].totalRevenue)}</span>
+                            ) : (
+                              <span>{formatCurrency(user.totalDeposit || 0)}</span>
+                            )}
+                          </span>
+                        </div>
+                        {wallets[user._id] && (
+                          <div className="text-xs text-gray-500">
+                            Cập nhật: {format(new Date(wallets[user._id].lastUpdated), 'dd/MM/yyyy')}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <TooltipProvider>
                         <Tooltip>
@@ -1745,7 +1821,7 @@ export default function UsersPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-10">
+                  <TableCell colSpan={9} className="text-center py-10">
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                       <User className="h-10 w-10 mb-2" />
                       <p>Không tìm thấy người dùng nào</p>

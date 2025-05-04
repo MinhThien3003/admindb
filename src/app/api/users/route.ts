@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-
+    
     // Kiểm tra header đặc biệt cho author role
     const userRole = request.headers.get('X-User-Role');
     const isAuthorCreation = userRole === 'author';
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       
       // Log dữ liệu người dùng với thêm thông tin về role
       console.log('Dữ liệu người dùng mới:', {
-        ...userData,
+        ...userData, 
         password: '[HIDDEN]',
         avatar: userData.avatar ? '[Avatar Base64]' : undefined,
         requestedRole: userData.role,
@@ -55,28 +55,28 @@ export async function POST(request: NextRequest) {
       });
       
       // Kiểm tra dữ liệu bắt buộc
-      if (!userData.username || !userData.email || !userData.fullname || !userData.password || !userData.gender) {
-        console.error('Thiếu trường bắt buộc:', { 
-          hasUsername: !!userData.username,
-          hasEmail: !!userData.email,
-          hasFullname: !!userData.fullname,
-          hasPassword: !!userData.password,
-          hasGender: !!userData.gender
-        });
-        return NextResponse.json(
-          { message: 'Thiếu thông tin bắt buộc (username, email, fullname, password, gender)' },
-          { status: 400 }
-        );
-      }
-
-      // Kiểm tra gender
-      if (!['Male', 'Female'].includes(userData.gender)) {
-        return NextResponse.json(
-          { message: 'Giới tính phải là "Male" hoặc "Female"' },
-          { status: 400 }
-        );
-      }
-
+    if (!userData.username || !userData.email || !userData.fullname || !userData.password || !userData.gender) {
+      console.error('Thiếu trường bắt buộc:', { 
+        hasUsername: !!userData.username,
+        hasEmail: !!userData.email,
+        hasFullname: !!userData.fullname,
+        hasPassword: !!userData.password,
+        hasGender: !!userData.gender
+      });
+      return NextResponse.json(
+        { message: 'Thiếu thông tin bắt buộc (username, email, fullname, password, gender)' },
+        { status: 400 }
+      );
+    }
+    
+    // Kiểm tra gender
+    if (!['Male', 'Female'].includes(userData.gender)) {
+      return NextResponse.json(
+        { message: 'Giới tính phải là "Male" hoặc "Female"' },
+        { status: 400 }
+      );
+    }
+    
       // Tạo người dùng mới
       // Nếu là tác giả (qua header hoặc forceRole), thì ghi đè role 'author'
       if (isAuthorCreation || hasForceRole) {
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json(newUser);
     } catch (error: unknown) {
-      console.error('Lỗi khi tạo người dùng mới:', error);
+    console.error('Lỗi khi tạo người dùng mới:', error);
       const errorMessage = error instanceof Error ? error.message : 'Đã xảy ra lỗi khi tạo người dùng mới';
       return NextResponse.json(
         { message: errorMessage },

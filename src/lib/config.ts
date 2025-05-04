@@ -19,6 +19,9 @@ const config = {
       novelRankings: '/novelRankings',
       transactions: '/transactions',
       tasks: '/tasks',
+      wallets: {
+        authors: '/wallets'
+      }
     }
   },
   auth: {
