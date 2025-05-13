@@ -14,6 +14,7 @@ import axios from "axios"
 export default function AuthorRequestsPage() {
   const [requests, setRequests] = useState<AuthorRegisterRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [processingIds, setProcessingIds] = useState<string[]>([])
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -43,9 +44,21 @@ export default function AuthorRequestsPage() {
 
   const handleApprove = async (requestId: string) => {
     try {
+      // Thêm requestId vào danh sách đang xử lý
+      setProcessingIds(prev => [...prev, requestId])
+      
       const response = await axios.patch(`/api/authorRegisters/admin/${requestId}/approve`)
       console.log('Approve response:', response.data)
-      setRequests(requests.filter(request => request._id !== requestId))
+      
+      // Cập nhật trạng thái của request trong state thay vì xóa nó
+      setRequests(prevRequests => 
+        prevRequests.map(request => 
+          request._id === requestId 
+            ? { ...request, status: 'approved' } 
+            : request
+        )
+      )
+      
       toast.success('Đã phê duyệt yêu cầu')
     } catch (error: any) {
       console.error('Chi tiết lỗi khi phê duyệt:', {
@@ -53,15 +66,30 @@ export default function AuthorRequestsPage() {
         response: error.response?.data,
         status: error.response?.status
       })
-      toast.error('Không thể phê duyệt yêu cầu')
+      toast.error(error.response?.data?.error || 'Không thể phê duyệt yêu cầu')
+    } finally {
+      // Xóa requestId khỏi danh sách đang xử lý
+      setProcessingIds(prev => prev.filter(id => id !== requestId))
     }
   }
 
   const handleReject = async (requestId: string) => {
     try {
+      // Thêm requestId vào danh sách đang xử lý
+      setProcessingIds(prev => [...prev, requestId])
+      
       const response = await axios.patch(`/api/authorRegisters/admin/${requestId}/refuse`)
       console.log('Reject response:', response.data)
-      setRequests(requests.filter(request => request._id !== requestId))
+      
+      // Cập nhật trạng thái của request trong state thay vì xóa nó
+      setRequests(prevRequests => 
+        prevRequests.map(request => 
+          request._id === requestId 
+            ? { ...request, status: 'rejected' } 
+            : request
+        )
+      )
+      
       toast.success('Đã từ chối yêu cầu')
     } catch (error: any) {
       console.error('Chi tiết lỗi khi từ chối:', {
@@ -69,7 +97,10 @@ export default function AuthorRequestsPage() {
         response: error.response?.data,
         status: error.response?.status
       })
-      toast.error('Không thể từ chối yêu cầu')
+      toast.error(error.response?.data?.error || 'Không thể từ chối yêu cầu')
+    } finally {
+      // Xóa requestId khỏi danh sách đang xử lý
+      setProcessingIds(prev => prev.filter(id => id !== requestId))
     }
   }
 
@@ -156,16 +187,28 @@ export default function AuthorRequestsPage() {
                               size="sm"
                               onClick={() => handleApprove(request._id)}
                               className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                              disabled={processingIds.includes(request._id)}
                             >
-                              Duyệt
+                              {processingIds.includes(request._id) ? (
+                                <span className="flex items-center">
+                                  <span className="animate-spin h-4 w-4 mr-2 border-2 border-t-transparent border-green-600 rounded-full"></span>
+                                  Đang xử lý...
+                                </span>
+                              ) : 'Duyệt'}
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleReject(request._id)}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              disabled={processingIds.includes(request._id)}
                             >
-                              Từ chối
+                              {processingIds.includes(request._id) ? (
+                                <span className="flex items-center">
+                                  <span className="animate-spin h-4 w-4 mr-2 border-2 border-t-transparent border-red-600 rounded-full"></span>
+                                  Đang xử lý...
+                                </span>
+                              ) : 'Từ chối'}
                             </Button>
                           </div>
                         )}
